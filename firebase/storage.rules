@@ -1,0 +1,33 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ==================== 語音錄音檔案 ====================
+    
+    // 路徑格式：voice_recordings/{userId}/{filename}
+    match /voice_recordings/{userId}/{filename} {
+      // 允許用戶上傳自己的語音檔案
+      allow create: if request.auth != null && 
+                       request.auth.uid == userId &&
+                       request.resource.size < 10 * 1024 * 1024 &&  // 最大 10 MB
+                       request.resource.contentType.matches('audio/.*');
+      
+      // 允許用戶讀取自己的語音檔案
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // 允許 Cloud Functions 讀取（通過 service account）
+      allow read: if request.auth == null;
+      
+      // 允許用戶刪除自己的語音檔案
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // ==================== 預設規則 ====================
+    
+    // 其他所有路徑預設拒絕存取
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==================== 輔助函數 ====================
+    
+    // 檢查用戶是否已登入
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // 檢查是否為文檔擁有者
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // 檢查是否為資源擁有者
+    function isResourceOwner() {
+      return isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+    
+    // ==================== Users Collection ====================
+    
+    // 用戶只能讀寫自己的資料
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+    
+    // ==================== Events Collection ====================
+    
+    // 用戶只能讀寫自己的行程
+    match /events/{eventId} {
+      // 允許建立行程（必須設定 userId 為當前用戶）
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.keys().hasAll([
+                         'userId', 'title', 'startTime', 'endTime',
+                         'createdAt', 'updatedAt', 'metadata'
+                       ]);
+      
+      // 允許讀取自己的行程
+      allow read: if isResourceOwner();
+      
+      // 允許更新自己的行程（不能更改 userId 和 createdAt）
+      allow update: if isResourceOwner() &&
+                       request.resource.data.userId == resource.data.userId &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+      
+      // 允許刪除自己的行程
+      allow delete: if isResourceOwner();
+    }
+    
+    // ==================== VoiceProcessing Collection ====================
+    
+    // 語音處理記錄
+    match /voiceProcessing/{processId} {
+      // 允許建立語音處理記錄（必須設定 userId 為當前用戶）
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.status == 'processing';
+      
+      // 允許讀取自己的記錄
+      allow read: if isResourceOwner();
+      
+      // 允許 Cloud Functions 更新（通過 service account）
+      // 或允許用戶刪除自己的記錄
+      allow update: if request.auth == null || isResourceOwner();
+      
+      // 允許刪除自己的記錄
+      allow delete: if isResourceOwner();
+    }
+    
+    // ==================== 預設規則 ====================
+    
+    // 其他所有集合預設拒絕存取
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

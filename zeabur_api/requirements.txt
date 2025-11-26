@@ -1,0 +1,26 @@
+# Web 框架
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# HTTP 客戶端
+httpx==0.25.1
+requests==2.31.0
+
+# OpenAI API
+openai==1.3.5
+
+# NLP 工具
+spacy==3.7.2
+dateparser==1.2.0
+
+# 資料處理
+pydantic==2.5.0
+python-dateutil==2.8.2
+
+# 環境變數
+python-dotenv==1.0.0
+
+# 日誌
+loguru==0.7.2
+

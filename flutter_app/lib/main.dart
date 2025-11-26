@@ -1,0 +1,185 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart'; // 日期格式本地化
+import 'screens/auth/login_screen.dart';
+import 'screens/calendar/calendar_screen.dart';
+import 'providers/auth_provider.dart';
+import 'services/notification_service.dart';
+import 'firebase_options.dart'; // Firebase 設定檔
+
+/// 應用程式主入口
+void main() async {
+  // 確保 Flutter 綁定初始化
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化日期格式本地化（支援中文）
+  await initializeDateFormatting('zh_TW', null);
+
+  // 初始化 Firebase
+  // 使用 firebase_options.dart 中的平台專屬設定
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // 設定背景訊息處理器
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // 執行應用程式
+  runApp(
+    // ProviderScope 是 Riverpod 的根節點
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
+}
+
+/// 應用程式主元件
+class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 監聽認證狀態
+    final authState = ref.watch(authStateProvider);
+
+    return MaterialApp(
+      title: 'AI 語音行事曆',
+      debugShowCheckedModeBanner: false,
+      
+      // 主題設定
+      theme: ThemeData(
+        // 使用 Material 3 設計
+        useMaterial3: true,
+        
+        // 主色調（Indigo）
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6366F1),
+          brightness: Brightness.light,
+        ),
+        
+        // 字體設定（使用 Noto Sans TC 中文字體）
+        textTheme: GoogleFonts.notoSansTextTheme(
+          Theme.of(context).textTheme,
+        ),
+        
+        // AppBar 主題
+        appBarTheme: AppBarTheme(
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: const Color(0xFF6366F1),
+          foregroundColor: Colors.white,
+          titleTextStyle: GoogleFonts.notoSans(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        
+        // 卡片主題
+        cardTheme: CardThemeData(
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        
+        // 按鈕主題
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: GoogleFonts.notoSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        
+        // 輸入框主題
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.grey[100],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.red, width: 2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+      ),
+      
+      // 根據認證狀態決定顯示的畫面
+      home: authState.when(
+        // 載入中
+        loading: () => const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+        
+        // 發生錯誤
+        error: (error, stack) => Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('載入失敗：$error'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    // 重新載入
+                    ref.invalidate(authStateProvider);
+                  },
+                  child: const Text('重試'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        // 載入完成
+        data: (user) {
+          if (user != null) {
+            // 已登入，初始化推播服務
+            _initializeNotifications(ref);
+            
+            // 顯示行事曆主畫面
+            return const CalendarScreen();
+          } else {
+            // 未登入，顯示登入畫面
+            return const LoginScreen();
+          }
+        },
+      ),
+    );
+  }
+
+  /// 初始化推播通知服務
+  void _initializeNotifications(WidgetRef ref) {
+    // 延遲執行，避免在 build 過程中執行非同步操作
+    Future.microtask(() async {
+      final notificationService = NotificationService();
+      await notificationService.initialize();
+      await notificationService.handleTerminatedMessage();
+    });
+  }
+}
+
