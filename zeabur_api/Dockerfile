@@ -17,7 +17,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 下載 spaCy 中文模型
-RUN python -m spacy download zh_core_web_sm
+RUN pip install https://github.com/explosion/spacy-models/releases/download/zh_core_web_sm-3.7.0/zh_core_web_sm-3.7.0-py3-none-any.whl
 
 # 複製應用程式碼
 COPY . .
