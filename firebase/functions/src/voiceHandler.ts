@@ -11,9 +11,8 @@ import * as admin from "firebase-admin";
 import axios from "axios";
 
 // Zeabur API 端點（需要在 Firebase 環境變數中設定）
-// 使用指令設定：firebase functions:config:set zeabur.api_url="https://your-api.zeabur.app"
-const ZEABUR_API_URL = functions.config().zeabur?.api_url ||
-  "https://your-zeabur-api.zeabur.app";
+// 優先從環境變數 (.env) 讀取，這是新版 Firebase Functions 的標準做法
+const ZEABUR_API_URL = process.env.ZEABUR_API_URL || "http://localhost:8000";
 
 /**
  * 語音處理結果介面

@@ -4,7 +4,7 @@
 
 /// Zeabur API 基礎 URL
 /// ⚠️ 部署後需要替換為實際的 Zeabur API URL
-const String kZeaburApiBaseUrl = 'https://your-zeabur-api.zeabur.app';
+const String kZeaburApiBaseUrl = 'https://aicalendar-api.zeabur.app';
 
 /// 語音解析 API 端點
 const String kVoiceParseEndpoint = '/api/voice/parse';

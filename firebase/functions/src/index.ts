@@ -7,7 +7,6 @@
  * 3. 將解析結果寫入 Firestore events collection
  */
 
-import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
 // 初始化 Firebase Admin SDK
