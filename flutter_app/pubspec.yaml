@@ -9,6 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  
+  # Flutter 本地化支援（必須用於 DatePicker/TimePicker 等 Material 元件）
+  flutter_localizations:
+    sdk: flutter
 
   # Firebase 核心套件（更新到最新版本以支援 Web）
   firebase_core: ^4.0.0
@@ -27,13 +31,14 @@ dependencies:
 
   # UI 組件
   table_calendar: ^3.0.9
-  intl: ^0.18.1
+  intl: ^0.20.2  # 更新版本以配合 flutter_localizations
 
   # 工具套件
   uuid: ^4.1.0
   http: ^1.1.0
   path_provider: ^2.1.0
   universal_io: ^2.2.2  # 跨平台 IO 支援（Web + 移動）
+  shared_preferences: ^2.2.0  # 本地儲存（用於標籤設定等）
 
   # UI 美化
   cupertino_icons: ^1.0.2

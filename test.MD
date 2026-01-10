@@ -782,3 +782,7 @@ log stream --predicate 'processImagePath contains "Runner"' --level debug
 2. 搜尋 Stack Overflow
 3. 查看專案的 GitHub Issues
 4. 詢問 Flutter 社群（Discord/Reddit）
+
+
+flutter emulators --launch Pixel_6 (ID)
+flutter run

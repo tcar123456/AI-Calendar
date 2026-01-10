@@ -2,11 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/event_model.dart';
 import '../services/firebase_service.dart';
 import 'auth_provider.dart';
+import 'calendar_provider.dart';
 
-/// 行程列表 Provider
+/// 所有行程列表 Provider
 /// 
-/// 監聽當前用戶的所有行程
-final eventsProvider = StreamProvider<List<CalendarEvent>>((ref) {
+/// 監聯當前用戶的所有行程（不過濾行事曆）
+final allEventsProvider = StreamProvider<List<CalendarEvent>>((ref) {
   final userId = ref.watch(currentUserIdProvider);
   
   if (userId == null) {
@@ -15,6 +16,52 @@ final eventsProvider = StreamProvider<List<CalendarEvent>>((ref) {
   
   final firebaseService = ref.watch(firebaseServiceProvider);
   return firebaseService.watchUserEvents(userId);
+});
+
+/// 行程列表 Provider
+/// 
+/// 監聽當前選擇行事曆的行程
+/// 會根據 selectedCalendarProvider 過濾行程
+/// 
+/// 過濾邏輯：
+/// - 選中行事曆 A → 只顯示 calendarId == A 的行程
+/// - 選中行事曆 B → 只顯示 calendarId == B 的行程
+/// - 舊行程（無 calendarId）→ 顯示在第一個行事曆中
+final eventsProvider = Provider<AsyncValue<List<CalendarEvent>>>((ref) {
+  final allEvents = ref.watch(allEventsProvider);
+  final selectedCalendar = ref.watch(selectedCalendarProvider);
+  final calendars = ref.watch(calendarsProvider);
+  
+  return allEvents.when(
+    data: (events) {
+      // 如果沒有選擇的行事曆，返回空列表
+      if (selectedCalendar == null) {
+        return const AsyncValue.data([]);
+      }
+      
+      // 取得第一個行事曆的 ID（用於處理舊行程）
+      final firstCalendarId = calendars.when(
+        data: (list) => list.isNotEmpty ? list.first.id : null,
+        loading: () => null,
+        error: (_, __) => null,
+      );
+      
+      // 過濾出屬於當前選擇行事曆的行程
+      final filteredEvents = events.where((event) {
+        // 情況 1：行程有 calendarId，必須完全匹配
+        if (event.calendarId != null) {
+          return event.calendarId == selectedCalendar.id;
+        }
+        
+        // 情況 2：舊行程（無 calendarId），顯示在第一個行事曆中
+        return selectedCalendar.id == firstCalendarId;
+      }).toList();
+      
+      return AsyncValue.data(filteredEvents);
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (error, stack) => AsyncValue.error(error, stack),
+  );
 });
 
 /// 指定日期的行程 Provider
@@ -150,6 +197,7 @@ class EventController extends StateNotifier<EventState> {
   /// 快速建立手動行程
   /// 
   /// 提供便捷的方法建立手動輸入的行程
+  /// 如果未指定 calendarId，會自動使用當前選擇的行事曆
   Future<String?> createManualEvent({
     required String title,
     required DateTime startTime,
@@ -159,6 +207,8 @@ class EventController extends StateNotifier<EventState> {
     List<String> participants = const [],
     int reminderMinutes = 15,
     bool isAllDay = false,
+    String? labelId,
+    String? calendarId,
   }) async {
     final userId = _ref.read(currentUserIdProvider);
     if (userId == null) {
@@ -166,9 +216,14 @@ class EventController extends StateNotifier<EventState> {
       return null;
     }
 
+    // 如果未指定 calendarId，使用當前選擇的行事曆
+    final effectiveCalendarId = calendarId ?? 
+        _ref.read(selectedCalendarProvider)?.id;
+
     final event = CalendarEvent(
       id: '', // 會由 Firestore 自動產生
       userId: userId,
+      calendarId: effectiveCalendarId,
       title: title,
       startTime: startTime,
       endTime: endTime,
@@ -177,6 +232,7 @@ class EventController extends StateNotifier<EventState> {
       participants: participants,
       reminderMinutes: reminderMinutes,
       isAllDay: isAllDay,
+      labelId: labelId,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       metadata: EventMetadata(createdBy: 'manual'),

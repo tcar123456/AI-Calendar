@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart'; // 日期格式本地化
+import 'package:flutter_localizations/flutter_localizations.dart'; // Material 本地化支援
 import 'screens/auth/login_screen.dart';
 import 'screens/calendar/calendar_screen.dart';
 import 'providers/auth_provider.dart';
@@ -48,6 +49,19 @@ class MyApp extends ConsumerWidget {
     return MaterialApp(
       title: 'AI 語音行事曆',
       debugShowCheckedModeBanner: false,
+      
+      // 本地化設定（必須用於 DatePicker/TimePicker 等 Material 元件的中文支援）
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,  // Material 元件本地化
+        GlobalWidgetsLocalizations.delegate,   // Widget 本地化
+        GlobalCupertinoLocalizations.delegate, // Cupertino 元件本地化
+      ],
+      supportedLocales: const [
+        Locale('zh', 'TW'), // 繁體中文（台灣）
+        Locale('zh', 'CN'), // 簡體中文
+        Locale('en', 'US'), // 英文
+      ],
+      locale: const Locale('zh', 'TW'), // 預設使用繁體中文
       
       // 主題設定
       theme: ThemeData(

@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import '../models/calendar_model.dart';
 import '../models/event_model.dart';
+import '../models/memo_model.dart';
 import '../models/user_model.dart';
 import '../models/voice_processing_model.dart';
 import '../utils/constants.dart';
@@ -403,6 +405,205 @@ class FirebaseService {
         .collection(kVoiceProcessingCollection)
         .doc(recordId)
         .delete();
+  }
+
+  // ==================== 備忘錄相關 ====================
+
+  /// 建立備忘錄
+  /// 
+  /// [memo] 備忘錄物件
+  /// 
+  /// 回傳：建立的備忘錄 ID
+  Future<String> createMemo(Memo memo) async {
+    final docRef = await _firestore
+        .collection(kMemosCollection)
+        .add(memo.toFirestore());
+    return docRef.id;
+  }
+
+  /// 更新備忘錄
+  Future<void> updateMemo(String memoId, Memo memo) async {
+    await _firestore
+        .collection(kMemosCollection)
+        .doc(memoId)
+        .update(memo.toFirestore());
+  }
+
+  /// 刪除備忘錄
+  Future<void> deleteMemo(String memoId) async {
+    await _firestore.collection(kMemosCollection).doc(memoId).delete();
+  }
+
+  /// 取得單一備忘錄
+  Future<Memo?> getMemo(String memoId) async {
+    final doc = await _firestore.collection(kMemosCollection).doc(memoId).get();
+    
+    if (!doc.exists) return null;
+    return Memo.fromFirestore(doc);
+  }
+
+  /// 取得用戶的所有備忘錄
+  Stream<List<Memo>> watchUserMemos(String userId) {
+    return _firestore
+        .collection(kMemosCollection)
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Memo.fromFirestore(doc))
+            .toList());
+  }
+
+  /// 取得用戶未完成的備忘錄
+  Stream<List<Memo>> watchPendingMemos(String userId) {
+    return _firestore
+        .collection(kMemosCollection)
+        .where('userId', isEqualTo: userId)
+        .where('isCompleted', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Memo.fromFirestore(doc))
+            .toList());
+  }
+
+  // ==================== 行事曆相關 ====================
+
+  /// 建立行事曆
+  /// 
+  /// [calendar] 行事曆物件
+  /// 
+  /// 回傳：建立的行事曆 ID
+  Future<String> createCalendar(CalendarModel calendar) async {
+    final docRef = await _firestore
+        .collection(kCalendarsCollection)
+        .add(calendar.toFirestore());
+    return docRef.id;
+  }
+
+  /// 更新行事曆
+  Future<void> updateCalendar(String calendarId, CalendarModel calendar) async {
+    await _firestore
+        .collection(kCalendarsCollection)
+        .doc(calendarId)
+        .update(calendar.toFirestore());
+  }
+
+  /// 刪除行事曆
+  /// 
+  /// 注意：刪除行事曆時，該行事曆下的所有行程也會一併刪除
+  Future<void> deleteCalendar(String calendarId) async {
+    // 先刪除該行事曆下的所有行程
+    final eventsSnapshot = await _firestore
+        .collection(kEventsCollection)
+        .where('calendarId', isEqualTo: calendarId)
+        .get();
+    
+    // 使用批次刪除以提高效能
+    final batch = _firestore.batch();
+    for (final doc in eventsSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    
+    // 刪除行事曆本身
+    batch.delete(_firestore.collection(kCalendarsCollection).doc(calendarId));
+    
+    await batch.commit();
+  }
+
+  /// 取得單一行事曆
+  Future<CalendarModel?> getCalendar(String calendarId) async {
+    final doc = await _firestore
+        .collection(kCalendarsCollection)
+        .doc(calendarId)
+        .get();
+    
+    if (!doc.exists) return null;
+    return CalendarModel.fromFirestore(doc);
+  }
+
+  /// 取得用戶的所有行事曆
+  Stream<List<CalendarModel>> watchUserCalendars(String userId) {
+    return _firestore
+        .collection(kCalendarsCollection)
+        .where('ownerId', isEqualTo: userId)
+        .orderBy('createdAt')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => CalendarModel.fromFirestore(doc))
+            .toList());
+  }
+
+  /// 取得用戶的預設行事曆
+  Future<CalendarModel?> getDefaultCalendar(String userId) async {
+    final snapshot = await _firestore
+        .collection(kCalendarsCollection)
+        .where('ownerId', isEqualTo: userId)
+        .where('isDefault', isEqualTo: true)
+        .limit(1)
+        .get();
+    
+    if (snapshot.docs.isEmpty) return null;
+    return CalendarModel.fromFirestore(snapshot.docs.first);
+  }
+
+  /// 確保用戶有預設行事曆
+  /// 
+  /// 如果用戶沒有任何行事曆，會自動建立一個預設行事曆
+  /// 回傳：預設行事曆的 ID
+  Future<String> ensureDefaultCalendar(String userId) async {
+    // 先檢查是否已有行事曆
+    final existingCalendars = await _firestore
+        .collection(kCalendarsCollection)
+        .where('ownerId', isEqualTo: userId)
+        .limit(1)
+        .get();
+    
+    if (existingCalendars.docs.isNotEmpty) {
+      // 如果已有行事曆，找出預設的
+      final defaultCal = await getDefaultCalendar(userId);
+      if (defaultCal != null) {
+        return defaultCal.id;
+      }
+      // 如果沒有預設的，將第一個設為預設
+      final firstCalId = existingCalendars.docs.first.id;
+      await _firestore
+          .collection(kCalendarsCollection)
+          .doc(firstCalId)
+          .update({'isDefault': true});
+      return firstCalId;
+    }
+    
+    // 沒有任何行事曆，建立預設行事曆
+    final defaultCalendar = CalendarModel.createDefault(ownerId: userId);
+    final calendarId = await createCalendar(defaultCalendar);
+    return calendarId;
+  }
+
+  /// 設定預設行事曆
+  /// 
+  /// 將指定行事曆設為預設，並取消其他行事曆的預設狀態
+  Future<void> setDefaultCalendar(String userId, String calendarId) async {
+    final batch = _firestore.batch();
+    
+    // 取消所有其他行事曆的預設狀態
+    final calendarsSnapshot = await _firestore
+        .collection(kCalendarsCollection)
+        .where('ownerId', isEqualTo: userId)
+        .where('isDefault', isEqualTo: true)
+        .get();
+    
+    for (final doc in calendarsSnapshot.docs) {
+      batch.update(doc.reference, {'isDefault': false});
+    }
+    
+    // 設定新的預設行事曆
+    batch.update(
+      _firestore.collection(kCalendarsCollection).doc(calendarId),
+      {'isDefault': true},
+    );
+    
+    await batch.commit();
   }
 
   // ==================== 工具方法 ====================

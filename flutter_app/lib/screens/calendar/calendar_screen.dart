@@ -1,16 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:intl/intl.dart';
 import '../../models/event_model.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/calendar_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../utils/constants.dart';
-import '../../widgets/draggable_mic_button.dart';
+import '../memo/memo_screen.dart';
+import '../notification/notification_screen.dart';
 import '../voice/voice_input_screen.dart';
 import 'event_detail_screen.dart';
 
+// 引入拆分後的元件
+import 'utils/calendar_utils.dart';
+import 'widgets/calendar_header.dart';
+import 'widgets/day_cell.dart';
+import 'widgets/multi_day_event_bar.dart';
+import 'widgets/day_events_bottom_sheet.dart';
+import 'widgets/year_month_picker.dart';
+import 'widgets/calendar_settings_sheet.dart';
+import 'widgets/app_bottom_nav.dart';
+import 'widgets/user_menu_sheet.dart';
+
 /// 行事曆主畫面
+/// 
+/// 重構後的主畫面，負責：
+/// 1. 管理頁面狀態（選中日期、焦點日期、行事曆格式）
+/// 2. 組合各個子元件
+/// 3. 處理導航邏輯
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
 
@@ -19,605 +37,582 @@ class CalendarScreen extends ConsumerStatefulWidget {
 }
 
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
-  /// 行事曆格式
+  /// 行事曆格式（月/雙週/週）
   CalendarFormat _calendarFormat = CalendarFormat.month;
   
   /// 選中的日期
   DateTime _selectedDay = DateTime.now();
   
-  /// 焦點日期
+  /// 焦點日期（決定顯示哪個月份/週）
   DateTime _focusedDay = DateTime.now();
   
-  /// 日曆檢視模式（true: 顯示事件標題, false: 只顯示標記點）
-  bool _showEventTitles = false;
+  /// 跨日事件的行分配表
+  Map<String, int> _multiDayEventRowAllocation = {};
+  
+  /// PageView 控制器（用於 Google Calendar 風格的滑動切換）
+  /// 使用一個很大的初始頁面索引，讓用戶可以向前後滑動
+  late PageController _pageController;
+  
+  /// 基準日期（用於計算頁面對應的日期）
+  final DateTime _baseDate = DateTime.now();
+  
+  /// 初始頁面索引（設為大數值以允許向前滑動）
+  static const int _initialPage = 1000;
+  
+  /// PageView 的 Key（用於在格式切換時強制重建）
+  /// 每次切換格式時會更新這個值，強制 PageView 完全重建
+  int _pageViewKey = 0;
+  
+  /// 取得用戶設定的週起始日
+  /// 
+  /// 監聯用戶資料中的 weekStartDay 設定
+  /// 預設為 0（週日）
+  int get _weekStartDay {
+    final userDataAsync = ref.watch(currentUserDataProvider);
+    return userDataAsync.when(
+      data: (user) => user?.settings.weekStartDay ?? 0,
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+  }
+  
+  /// 取得用戶設定的是否顯示節日
+  /// 
+  /// 監聽用戶資料中的 showHolidays 設定
+  /// 預設為 true
+  bool get _showHolidays {
+    final userDataAsync = ref.watch(currentUserDataProvider);
+    return userDataAsync.when(
+      data: (user) => user?.settings.showHolidays ?? true,
+      loading: () => true,
+      error: (_, __) => true,
+    );
+  }
+
+  /// 取得用戶設定的節日地區列表
+  /// 
+  /// 監聽用戶資料中的 holidayRegions 設定
+  /// 預設為 ['taiwan']
+  List<String> get _holidayRegions {
+    final userDataAsync = ref.watch(currentUserDataProvider);
+    return userDataAsync.when(
+      data: (user) => user?.settings.holidayRegions ?? ['taiwan'],
+      loading: () => ['taiwan'],
+      error: (_, __) => ['taiwan'],
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 初始化 PageController，設定初始頁面
+    _pageController = PageController(initialPage: _initialPage);
+  }
+
+  @override
+  void dispose() {
+    // 釋放 PageController 資源
+    _pageController.dispose();
+    super.dispose();
+  }
+  
+  /// 切換行事曆格式時重置 PageController
+  /// 
+  /// 因為不同格式的頁面索引計算方式不同，
+  /// 切換格式時需要重新建立 PageController 並跳轉到對應頁面
+  /// 
+  /// 切換邏輯：
+  /// - 從月視圖切換到週/雙週視圖：跳轉到該月第一天所在的週
+  /// - 從週/雙週視圖切換：保持在當前焦點日期所在的頁面
+  void _onFormatChanged(CalendarFormat newFormat) {
+    if (newFormat == _calendarFormat) return;
+    
+    // 計算目標日期（使用當前顯示的焦點日期）
+    DateTime targetDate;
+    if (_calendarFormat == CalendarFormat.month) {
+      // 從月視圖切換出去：使用該月的第一天
+      targetDate = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    } else {
+      // 從週/雙週視圖切換：保持當前焦點日期
+      targetDate = _focusedDay;
+    }
+    
+    // 使用新格式的 _initialPage 作為基準，計算目標日期對應的頁面索引
+    final newPageIndex = _getPageIndexFromDateForNewFormat(targetDate, newFormat);
+    
+    // 計算新格式下的焦點日期（頁面的起始日期）
+    final newFocusedDay = _getDateFromPageIndexForFormat(newPageIndex, newFormat);
+    
+    setState(() {
+      _calendarFormat = newFormat;
+      _focusedDay = newFocusedDay;
+      // 更新 PageView 的 Key 以強制完全重建
+      _pageViewKey++;
+      // 重建 PageController 並跳轉到對應頁面
+      _pageController.dispose();
+      _pageController = PageController(initialPage: newPageIndex);
+    });
+  }
+  
+  /// 為新格式計算頁面索引（用於格式切換）
+  /// 
+  /// 這個方法確保頁面索引總是相對於 _initialPage 計算
+  int _getPageIndexFromDateForNewFormat(DateTime date, CalendarFormat format) {
+    switch (format) {
+      case CalendarFormat.month:
+        // 月視圖：計算與 baseDate 的月份差
+        final monthDiff = (date.year - _baseDate.year) * 12 + (date.month - _baseDate.month);
+        return _initialPage + monthDiff;
+        
+      case CalendarFormat.twoWeeks:
+      case CalendarFormat.week:
+        // 週視圖：計算與 baseDate 所在週的週數差
+        final baseWeekStart = _getWeekStartForDate(_baseDate);
+        final targetWeekStart = _getWeekStartForDate(date);
+        final daysDiff = targetWeekStart.difference(baseWeekStart).inDays;
+        final weeksDiff = (daysDiff / 7).floor();
+        
+        if (format == CalendarFormat.twoWeeks) {
+          // 雙週視圖：每2週一頁
+          return _initialPage + (weeksDiff / 2).floor();
+        } else {
+          // 週視圖：每1週一頁
+          return _initialPage + weeksDiff;
+        }
+    }
+  }
+  
+  /// 為指定格式計算頁面對應的日期
+  /// 
+  /// 這是 _getDateFromPageIndex 的獨立版本，不依賴當前 _calendarFormat
+  DateTime _getDateFromPageIndexForFormat(int pageIndex, CalendarFormat format) {
+    final offset = pageIndex - _initialPage;
+    
+    switch (format) {
+      case CalendarFormat.month:
+        return DateTime(_baseDate.year, _baseDate.month + offset, 1);
+        
+      case CalendarFormat.twoWeeks:
+        final baseWeekStart = _getWeekStartForDate(_baseDate);
+        return baseWeekStart.add(Duration(days: offset * 14));
+        
+      case CalendarFormat.week:
+        final baseWeekStart = _getWeekStartForDate(_baseDate);
+        return baseWeekStart.add(Duration(days: offset * 7));
+    }
+  }
+  
+  /// 取得指定日期所在週的起始日（不依賴 _weekStartDay getter）
+  /// 
+  /// 用於格式切換時的計算，避免在計算過程中觸發 ref.watch
+  DateTime _getWeekStartForDate(DateTime date) {
+    final weekday = date.weekday % 7;
+    final weekStartDay = _weekStartDay;
+    final daysToSubtract = (weekday - weekStartDay + 7) % 7;
+    return DateTime(date.year, date.month, date.day - daysToSubtract);
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 取得當前用戶資料
-    final currentUserData = ref.watch(currentUserDataProvider);
-    
     // 取得所有行程
     final eventsAsync = ref.watch(eventsProvider);
+    // 取得當前選擇的行事曆
+    final selectedCalendar = ref.watch(selectedCalendarProvider);
 
-    return Stack(
-      children: [
-        // Scaffold 主體
-        Scaffold(
-          appBar: AppBar(
-            title: const Text('我的行事曆'),
-            actions: [
-              // 切換日曆檢視模式按鈕
-              IconButton(
-                icon: Icon(_showEventTitles ? Icons.calendar_view_month : Icons.calendar_today),
-                tooltip: _showEventTitles ? '切換到簡潔模式' : '切換到事件標題模式',
-                onPressed: () {
-                  setState(() {
-                    _showEventTitles = !_showEventTitles;
-                  });
-                },
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        // 顯示當前行事曆名稱，若無則顯示預設名稱
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 行事曆顏色指示器
+            if (selectedCalendar != null)
+              Container(
+                width: 12,
+                height: 12,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: selectedCalendar.color,
+                  shape: BoxShape.circle,
+                ),
               ),
-              // 用戶資訊按鈕
-              IconButton(
-                icon: const Icon(Icons.account_circle),
-                onPressed: () => _showUserMenu(context),
-              ),
-            ],
-          ),
-          
-          body: Column(
-            children: [
-              // 行事曆元件 - 佔據大部分空間
-              Expanded(
-                child: _buildCalendar(eventsAsync),
-              ),
-            ],
-          ),
-          
-          // 底部導航欄
-          bottomNavigationBar: _buildBottomNavigationBar(context),
+            Text(selectedCalendar?.name ?? '我的行事曆'),
+          ],
         ),
-        
-        // 可拖動的麥克風懸浮按鈕（位於最上層）
-        DraggableMicButton(
-          onPressed: (buttonCenter) => _navigateToVoiceInput(context, buttonCenter),
-          backgroundColor: const Color(kPrimaryColorValue),
-          iconColor: Colors.white,
-        ),
-      ],
+        centerTitle: false,
+        actions: [
+          // 新增按鈕
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: '新增行程',
+            onPressed: () => _navigateToEventDetail(context, null),
+          ),
+          // 行事曆設定按鈕
+          IconButton(
+            icon: const Icon(Icons.space_dashboard),
+            tooltip: '行事曆設定',
+            onPressed: () => CalendarSettingsSheet.show(context),
+          ),
+        ],
+      ),
+      
+      body: Column(
+        children: [
+          Expanded(
+            child: _buildCalendar(eventsAsync),
+          ),
+        ],
+      ),
+      
+      // 底部導航欄
+      bottomNavigationBar: AppBottomNav(
+        currentIndex: 0,
+        onItemTap: (index) => _handleBottomNavTap(context, index),
+      ),
     );
   }
 
   /// 建立行事曆元件
-  Widget _buildCalendar(AsyncValue<List<CalendarEvent>> eventsAsync) {
-    return Card(
-      margin: const EdgeInsets.all(kPaddingMedium),
-      child: TableCalendar(
-        // 基本設定
-        firstDay: DateTime.utc(2020, 1, 1),
-        lastDay: DateTime.utc(2030, 12, 31),
-        focusedDay: _focusedDay,
-        selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-        calendarFormat: _calendarFormat,
-        
-        // 事件載入器
-        eventLoader: (day) {
-          return eventsAsync.when(
-            data: (events) => events.where((e) => e.isOnDate(day)).toList(),
-            loading: () => [],
-            error: (_, __) => [],
-          );
-        },
-        
-        // 本地化設定
-        locale: 'zh_TW',
-        
-        // 行事曆樣式
-        calendarStyle: CalendarStyle(
-          todayDecoration: BoxDecoration(
-            color: const Color(kPrimaryColorValue).withOpacity(0.3),
-            shape: BoxShape.circle,
-          ),
-          selectedDecoration: const BoxDecoration(
-            color: Color(kPrimaryColorValue),
-            shape: BoxShape.circle,
-          ),
-          markerDecoration: const BoxDecoration(
-            color: Color(kSuccessColorValue),
-            shape: BoxShape.circle,
-          ),
-          markersMaxCount: 3,
-          // 如果顯示事件標題，需要更多高度
-          cellMargin: _showEventTitles 
-              ? const EdgeInsets.all(2)
-              : const EdgeInsets.all(6),
-        ),
-        
-        // 自定義單元格建構器
-        // 當 _showEventTitles 為 true 時，使用自定義建構器顯示事件標題
-        // 當為 false 時，使用空的 CalendarBuilders 以使用預設行為
-        calendarBuilders: _showEventTitles ? CalendarBuilders(
-          // 自定義單元格內容
-          defaultBuilder: (context, day, focusedDay) {
-            return _buildDayCellWithEvents(context, day, eventsAsync);
-          },
-          todayBuilder: (context, day, focusedDay) {
-            return _buildDayCellWithEvents(context, day, eventsAsync, isToday: true);
-          },
-          selectedBuilder: (context, day, focusedDay) {
-            return _buildDayCellWithEvents(context, day, eventsAsync, isSelected: true);
-          },
-        ) : CalendarBuilders(),
-        
-        // 標題樣式
-        headerStyle: const HeaderStyle(
-          formatButtonVisible: true,
-          titleCentered: true,
-          formatButtonShowsNext: false,
-        ),
-        
-        // 回調函數
-        onDaySelected: (selectedDay, focusedDay) {
-          setState(() {
-            _selectedDay = selectedDay;
-            _focusedDay = focusedDay;
-          });
-          
-          // 點擊日期後彈出該日的行程列表
-          _showDayEventsBottomSheet(context, selectedDay, eventsAsync);
-        },
-        
-        onFormatChanged: (format) {
-          setState(() {
-            _calendarFormat = format;
-          });
-        },
-        
-        onPageChanged: (focusedDay) {
-          _focusedDay = focusedDay;
-        },
-      ),
-    );
-  }
-
-  /// 建立帶有事件標題的日期單元格
-  Widget _buildDayCellWithEvents(
-    BuildContext context,
-    DateTime day,
-    AsyncValue<List<CalendarEvent>> eventsAsync, {
-    bool isToday = false,
-    bool isSelected = false,
-  }) {
-    // 取得當天的事件
-    final dayEvents = eventsAsync.when(
-      data: (events) => events
-          .where((e) => e.isOnDate(day))
-          .toList()
-        ..sort((a, b) => a.startTime.compareTo(b.startTime)),
-      loading: () => <CalendarEvent>[],
-      error: (_, __) => <CalendarEvent>[],
-    );
-
-    // 決定背景顏色
-    Color? backgroundColor;
-    if (isSelected) {
-      backgroundColor = const Color(kPrimaryColorValue);
-    } else if (isToday) {
-      backgroundColor = const Color(kPrimaryColorValue).withOpacity(0.3);
-    }
-
-    // 決定文字顏色
-    final textColor = isSelected ? Colors.white : Colors.black87;
-    final eventTextColor = isSelected ? Colors.white70 : Colors.grey[600];
-
+  Widget _buildCalendar(AsyncValue<List<CalendarEvent>> eventsAsyncValue) {
     return Container(
-      margin: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
-        border: isToday && !isSelected
-            ? Border.all(color: const Color(kPrimaryColorValue), width: 2)
-            : null,
-      ),
+      margin: const EdgeInsets.all(kPaddingSmall),
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(),
       child: Column(
         children: [
-          // 日期數字
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              '${day.day}',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: textColor,
-              ),
-            ),
+          // 月份/週標題區域
+          CalendarHeader(
+            focusedDay: _focusedDay,
+            calendarFormat: _calendarFormat,
+            onPreviousMonth: _goToPreviousPage,
+            onNextMonth: _goToNextPage,
+            onFormatChanged: _onFormatChanged,
+            onTitleTap: () => _showYearMonthPicker(context),
+            weekStartDay: _weekStartDay,
           ),
           
-          // 事件標題（最多顯示2個）
-          if (dayEvents.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Column(
-                  children: [
-                    for (var i = 0; i < (dayEvents.length > 2 ? 2 : dayEvents.length); i++)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 2),
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: isSelected 
-                              ? Colors.white.withOpacity(0.2)
-                              : const Color(kSuccessColorValue).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          dayEvents[i].title,
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: eventTextColor,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    // 如果還有更多事件，顯示 +N
-                    if (dayEvents.length > 2)
-                      Text(
-                        '+${dayEvents.length - 2}',
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: eventTextColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          // 星期列標題（根據用戶設定的週起始日動態調整）
+          DaysOfWeekHeader(weekStartDay: _weekStartDay),
+          
+          // 日期 Grid
+          Expanded(
+            child: _buildDateGrid(eventsAsyncValue),
+          ),
         ],
       ),
     );
   }
 
-  /// 建立行程列表
-  Widget _buildEventList(AsyncValue<List<CalendarEvent>> eventsAsync) {
-    return eventsAsync.when(
-      // 載入中
-      loading: () => const Center(
-        child: CircularProgressIndicator(),
-      ),
-      
-      // 發生錯誤
-      error: (error, stack) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text('載入失敗：$error'),
-          ],
-        ),
-      ),
-      
-      // 載入完成
-      data: (events) {
-        // 篩選選中日期的行程
-        final selectedDayEvents = events
-            .where((e) => e.isOnDate(_selectedDay))
-            .toList()
-          ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
-        if (selectedDayEvents.isEmpty) {
-          return _buildEmptyState();
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(kPaddingMedium),
-          itemCount: selectedDayEvents.length,
-          itemBuilder: (context, index) {
-            return _buildEventCard(selectedDayEvents[index]);
+  /// 建立日期 Grid（使用 PageView 實現 Google Calendar 風格的滑動切換）
+  /// 
+  /// 根據行事曆格式決定滑動單位：
+  /// - 月視圖：滑一頁 = 一個月
+  /// - 雙週視圖：滑一頁 = 兩週
+  /// - 週視圖：滑一頁 = 一週
+  Widget _buildDateGrid(AsyncValue<List<CalendarEvent>> eventsAsync) {
+    final allEvents = eventsAsync.when(
+      data: (events) => events,
+      loading: () => <CalendarEvent>[],
+      error: (_, __) => <CalendarEvent>[],
+    );
+    
+    // 為跨日事件分配行索引
+    _multiDayEventRowAllocation = CalendarUtils.allocateMultiDayEventRows(allEvents);
+    
+    return PageView.builder(
+      // 使用 Key 在格式切換時強制 PageView 完全重建
+      // 這確保 PageController 的狀態與 PageView 完全同步
+      key: ValueKey('pageview_$_pageViewKey'),
+      controller: _pageController,
+      // 當頁面切換完成時更新 focusedDay
+      onPageChanged: (pageIndex) {
+        setState(() {
+          // 根據當前格式計算新的焦點日期
+          final newDate = _getDateFromPageIndexForFormat(pageIndex, _calendarFormat);
+          _focusedDay = newDate;
+        });
+      },
+      // 無限滑動（使用大範圍的頁面索引）
+      itemBuilder: (context, pageIndex) {
+        // 根據視圖格式取得要顯示的週
+        final displayWeeks = _getWeeksForPage(pageIndex, _calendarFormat);
+        
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final rowHeight = constraints.maxHeight / displayWeeks.length;
+            
+            return Column(
+              key: ValueKey('${_calendarFormat}_$pageIndex'),
+              children: displayWeeks.map((week) {
+                return SizedBox(
+                  height: rowHeight,
+                  child: _buildWeekRow(week, allEvents, rowHeight),
+                );
+              }).toList(),
+            );
           },
         );
       },
     );
   }
-
-  /// 建立空狀態提示
-  Widget _buildEmptyState() {
-    final dateStr = DateFormat('yyyy年MM月dd日').format(_selectedDay);
+  
+  /// 根據頁面索引和視圖格式取得要顯示的週列表
+  /// 
+  /// - 月視圖：返回整個月的所有週
+  /// - 雙週視圖：返回 2 週
+  /// - 週視圖：返回 1 週
+  List<List<DateTime>> _getWeeksForPage(int pageIndex, CalendarFormat format) {
+    final pageStartDate = _getDateFromPageIndexForFormat(pageIndex, format);
     
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.event_busy,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '$dateStr\n沒有安排行程',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _navigateToVoiceInput(context),
-            icon: const Icon(Icons.mic),
-            label: const Text('使用語音建立行程'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 建立行程卡片
-  Widget _buildEventCard(CalendarEvent event) {
-    final timeRange = '${DateFormat('HH:mm').format(event.startTime)} - '
-        '${DateFormat('HH:mm').format(event.endTime)}';
-    
-    // 根據行程狀態決定顏色
-    Color statusColor;
-    IconData statusIcon;
-    
-    if (event.isPast()) {
-      statusColor = Colors.grey;
-      statusIcon = Icons.check_circle_outline;
-    } else if (event.isOngoing()) {
-      statusColor = const Color(kSuccessColorValue);
-      statusIcon = Icons.circle;
-    } else if (event.isUpcoming()) {
-      statusColor = const Color(kWarningColorValue);
-      statusIcon = Icons.notification_important;
-    } else {
-      statusColor = const Color(kPrimaryColorValue);
-      statusIcon = Icons.schedule;
+    switch (format) {
+      case CalendarFormat.month:
+        // 月視圖：取得該月的所有週（使用用戶設定的週起始日）
+        return CalendarUtils.getWeeksInMonth(pageStartDate, weekStartDay: _weekStartDay);
+        
+      case CalendarFormat.twoWeeks:
+        // 雙週視圖：取得連續 2 週
+        return _getConsecutiveWeeks(pageStartDate, 2);
+        
+      case CalendarFormat.week:
+        // 週視圖：取得 1 週
+        return _getConsecutiveWeeks(pageStartDate, 1);
     }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: kPaddingMedium),
-      child: InkWell(
-        onTap: () => _navigateToEventDetail(context, event),
-        borderRadius: BorderRadius.circular(kBorderRadius),
-        child: Padding(
-          padding: const EdgeInsets.all(kPaddingMedium),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 狀態指示器
-              Container(
-                width: 4,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              
-              const SizedBox(width: kPaddingMedium),
-              
-              // 行程資訊
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 標題
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            event.title,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        
-                        // 語音建立標記
-                        if (event.metadata.createdBy == 'voice')
-                          const Icon(
-                            Icons.mic,
-                            size: 16,
-                            color: Color(kPrimaryColorValue),
-                          ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 4),
-                    
-                    // 時間
-                    Row(
-                      children: [
-                        Icon(statusIcon, size: 14, color: statusColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          timeRange,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    // 地點
-                    if (event.location != null) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              event.location!,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
-
-  /// 顯示用戶選單
-  void _showUserMenu(BuildContext context) {
-    final currentUserData = ref.read(currentUserDataProvider);
+  
+  /// 取得從指定日期開始的連續若干週
+  /// 
+  /// [startDate] 應該是一週的起始日（週日）
+  /// [weekCount] 要取得的週數
+  List<List<DateTime>> _getConsecutiveWeeks(DateTime startDate, int weekCount) {
+    final List<List<DateTime>> weeks = [];
+    DateTime currentDay = startDate;
     
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    for (int w = 0; w < weekCount; w++) {
+      final List<DateTime> week = [];
+      for (int d = 0; d < 7; d++) {
+        week.add(currentDay);
+        currentDay = currentDay.add(const Duration(days: 1));
+      }
+      weeks.add(week);
+    }
+    
+    return weeks;
+  }
+
+
+  /// 建立單週行（使用 Stack 支援跨日事件橫條）
+  Widget _buildWeekRow(
+    List<DateTime> week, 
+    List<CalendarEvent> allEvents,
+    double rowHeight,
+  ) {
+    final multiDayEventsInWeek = CalendarUtils.getMultiDayEventsForWeek(week, allEvents);
+    
+    // 計算最大行索引
+    int maxRowIndex = -1;
+    for (final event in multiDayEventsInWeek) {
+      final rowIndex = _multiDayEventRowAllocation[event.id] ?? 0;
+      if (rowIndex > maxRowIndex) {
+        maxRowIndex = rowIndex;
+      }
+    }
+    final displayMultiDayRows = (maxRowIndex + 1).clamp(0, 4);
+    
+    // 建立每日單日事件 Map
+    final singleDayEventsMap = <DateTime, List<CalendarEvent>>{};
+    for (final day in week) {
+      final dayKey = DateTime(day.year, day.month, day.day);
+      singleDayEventsMap[dayKey] = allEvents
+          .where((e) => !e.isMultiDay() && e.isOnDate(day))
+          .toList()
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    }
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth = constraints.maxWidth / 7;
+        
+        return Stack(
           children: [
-            // 用戶資訊
-            currentUserData.when(
-              data: (user) => ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: user?.photoURL != null
-                      ? NetworkImage(user!.photoURL!)
-                      : null,
-                  child: user?.photoURL == null
-                      ? const Icon(Icons.person)
-                      : null,
-                ),
-                title: Text(user?.getDisplayName() ?? '用戶'),
-                subtitle: Text(user?.email ?? ''),
-              ),
-              loading: () => const ListTile(
-                leading: CircularProgressIndicator(),
-                title: Text('載入中...'),
-              ),
-              error: (_, __) => const ListTile(
-                leading: Icon(Icons.error),
-                title: Text('載入失敗'),
-              ),
-            ),
-            
-            const Divider(),
-            
-            // 設定（未來功能）
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('設定'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('設定功能開發中')),
+            // 底層：7 個日期單元格
+            Row(
+              children: week.map((day) {
+                final dayKey = DateTime(day.year, day.month, day.day);
+                final singleDayEvents = singleDayEventsMap[dayKey] ?? [];
+                final occupiedRows = CalendarUtils.getOccupiedRowsForDate(
+                  day, allEvents, _multiDayEventRowAllocation);
+                
+                return Expanded(
+                  child: DayCell(
+                    day: day,
+                    singleDayEvents: singleDayEvents,
+                    allEvents: allEvents,
+                    occupiedRows: occupiedRows,
+                    totalMultiDayRows: displayMultiDayRows,
+                    focusedMonth: _focusedDay,
+                    selectedDay: _selectedDay,
+                    rowAllocation: _multiDayEventRowAllocation,
+                    calendarFormat: _calendarFormat,
+                    showHolidays: _showHolidays,
+                    holidayRegions: _holidayRegions,
+                    onDaySelected: (selectedDay) {
+                      setState(() {
+                        _selectedDay = selectedDay;
+                        if (selectedDay.month != _focusedDay.month) {
+                          _focusedDay = DateTime(selectedDay.year, selectedDay.month, 1);
+                        }
+                      });
+                      // 顯示該日行程列表（使用 Provider 監聽事件變化）
+                      DayEventsBottomSheet.show(
+                        context: context,
+                        selectedDay: selectedDay,
+                        onAddEvent: () => _navigateToEventDetail(context, null),
+                        onEventTap: (event) => _navigateToEventDetail(context, event),
+                      );
+                    },
+                    onEventTap: (event) => _navigateToEventDetail(context, event),
+                  ),
                 );
-              },
+              }).toList(),
             ),
             
-            // 登出
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('登出', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                ref.read(authControllerProvider.notifier).signOut();
-              },
-            ),
-            
-            const SizedBox(height: 16),
+            // 上層：跨日事件橫條
+            // 點擊跨日事件時，會根據點擊位置開啟對應日期的列表
+            for (final event in multiDayEventsInWeek)
+              if ((_multiDayEventRowAllocation[event.id] ?? 0) < 4)
+                MultiDayEventBar(
+                  week: week,
+                  event: event,
+                  cellWidth: cellWidth,
+                  dateNumberHeight: DayCell.dateNumberHeight,
+                  eventItemHeight: DayCell.eventItemHeight,
+                  eventItemGap: DayCell.eventItemGap,
+                  rowAllocation: _multiDayEventRowAllocation,
+                  // 點擊跨日事件時開啟對應日期的列表
+                  onDaySelected: (selectedDay) {
+                    setState(() {
+                      _selectedDay = selectedDay;
+                      if (selectedDay.month != _focusedDay.month) {
+                        _focusedDay = DateTime(selectedDay.year, selectedDay.month, 1);
+                      }
+                    });
+                    // 顯示該日行程列表（使用 Provider 監聯事件變化）
+                    DayEventsBottomSheet.show(
+                      context: context,
+                      selectedDay: selectedDay,
+                      onAddEvent: () => _navigateToEventDetail(context, null),
+                      onEventTap: (event) => _navigateToEventDetail(context, event),
+                    );
+                  },
+                ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
-  /// 導航到語音輸入畫面（從麥克風按鈕位置展開）
-  /// [buttonCenter] 可選參數：按鈕的中心位置，用於圓形展開動畫
-  /// 如果未提供，則使用螢幕中心作為展開起點
-  void _navigateToVoiceInput(BuildContext context, [Offset? buttonCenter]) {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return const VoiceInputScreen();
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          // 獲取螢幕尺寸
-          final screenSize = MediaQuery.of(context).size;
-          
-          // 如果沒有提供 buttonCenter，使用螢幕中心
-          final center = buttonCenter ?? Offset(screenSize.width / 2, screenSize.height / 2);
-          
-          // 螢幕中心點
-          final screenCenter = Offset(screenSize.width / 2, screenSize.height / 2);
-          
-          // 縮放動畫
-          final scaleAnimation = Tween<double>(
-            begin: 0.0,
-            end: 1.0,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInSine,  // ✅ 無回彈
-          ));
-          
-          // 位置動畫（從按鈕位置移動到螢幕中心）
-          final positionAnimation = Tween<Offset>(
-            begin: center - screenCenter,
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-          ));
-          
-          // 淡入動畫（快速淡入，不要太明顯）
-          final fadeAnimation = Tween<double>(
-            begin: 0.0,
-            end: 1.0,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
-          ));
-          
-          return AnimatedBuilder(
-            animation: animation,
-            builder: (context, child) {
-              return Transform.translate(
-                offset: positionAnimation.value,
-                child: Transform.scale(
-                  scale: scaleAnimation.value,
-                  alignment: Alignment.center,
-                  child: Opacity(
-                    opacity: fadeAnimation.value,
-                    child: child,
-                  ),
-                ),
-              );
-            },
-            child: child,
-          );
-        },
-      ),
+  // ==================== 導航方法 ====================
+
+  /// 切換到上一頁（使用 PageController 動畫切換）
+  /// 
+  /// 根據視圖格式：
+  /// - 月視圖：切換到上個月
+  /// - 雙週視圖：切換到前兩週
+  /// - 週視圖：切換到上一週
+  void _goToPreviousPage() {
+    _pageController.previousPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
     );
+  }
+
+  /// 切換到下一頁（使用 PageController 動畫切換）
+  /// 
+  /// 根據視圖格式：
+  /// - 月視圖：切換到下個月
+  /// - 雙週視圖：切換到後兩週
+  /// - 週視圖：切換到下一週
+  void _goToNextPage() {
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  /// 跳轉到今天（使用 PageController 動畫跳轉）
+  void _jumpToToday() {
+    final today = DateTime.now();
+    final targetPage = _getPageIndexFromDateForNewFormat(today, _calendarFormat);
+    
+    // 使用動畫跳轉到今天所在的頁面
+    _pageController.animateToPage(
+      targetPage,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+    
+    setState(() {
+      _selectedDay = today;
+      _focusedDay = today;
+    });
+  }
+
+  /// 顯示年月選擇器
+  void _showYearMonthPicker(BuildContext context) {
+    YearMonthPicker.show(
+      context: context,
+      currentDate: _focusedDay,
+      onDateSelected: (date) {
+        // 使用 PageController 跳轉到選擇的日期
+        final targetPage = _getPageIndexFromDateForNewFormat(date, _calendarFormat);
+        _pageController.animateToPage(
+          targetPage,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+        setState(() {
+          _selectedDay = date;
+          _focusedDay = date;
+        });
+      },
+      onJumpToToday: _jumpToToday,
+    );
+  }
+
+  /// 處理底部導航欄點擊
+  void _handleBottomNavTap(BuildContext context, int index) {
+    switch (index) {
+      case 0: // 行事曆
+        _jumpToToday();
+        break;
+      case 1: // 通知
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const NotificationScreen()),
+        );
+        break;
+      case 2: // 語音輸入
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const VoiceInputScreen()),
+        );
+        break;
+      case 3: // 備忘錄
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const MemoScreen()),
+        );
+        break;
+      case 4: // 我的帳號
+        _showUserMenu(context);
+        break;
+    }
   }
 
   /// 導航到行程詳情畫面
-  void _navigateToEventDetail(BuildContext context, CalendarEvent? event) {
-    Navigator.of(context).push(
+  /// 
+  /// 返回 Future，讓呼叫者可以等待導航完成
+  Future<void> _navigateToEventDetail(BuildContext context, CalendarEvent? event) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => EventDetailScreen(
           event: event,
@@ -627,453 +622,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
-  /// 建立底部導航欄（5個區塊）
-  Widget _buildBottomNavigationBar(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: SizedBox(
-          height: 70,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              // 第一個位置：行事曆（當前頁面）
-              _buildBottomNavItem(
-                icon: Icons.calendar_today,
-                label: '行事曆',
-                isActive: true,
-                onTap: () {
-                  // 當前頁面，無需操作
-                },
-              ),
-              
-              // 第二個位置：待開發功能
-              _buildBottomNavItem(
-                icon: Icons.notifications_outlined,
-                label: '通知',
-                isActive: false,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('通知功能開發中')),
-                  );
-                },
-              ),
-              
-              // 第三個位置：中間的新增按鈕（加大）
-              InkWell(
-                onTap: () => _navigateToEventDetail(context, null),
-                borderRadius: BorderRadius.circular(30),
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: const Color(kPrimaryColorValue),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(kPrimaryColorValue).withOpacity(0.4),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.add,
-                    color: Colors.white,
-                    size: 32,
-                  ),
-                ),
-              ),
-              
-              // 第四個位置：待開發功能
-              _buildBottomNavItem(
-                icon: Icons.search,
-                label: '搜尋',
-                isActive: false,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('搜尋功能開發中')),
-                  );
-                },
-              ),
-              
-              // 第五個位置：個人資料
-              _buildBottomNavItem(
-                icon: Icons.person_outline,
-                label: '我的',
-                isActive: false,
-                onTap: () => _showUserMenu(context),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 建立底部導航項目
-  Widget _buildBottomNavItem({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    final color = isActive 
-        ? const Color(kPrimaryColorValue) 
-        : Colors.grey[600]!;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: color,
-              size: 26,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: color,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 顯示該日行程列表的底部面板
-  void _showDayEventsBottomSheet(
-    BuildContext context,
-    DateTime selectedDay,
-    AsyncValue<List<CalendarEvent>> eventsAsync,
-  ) {
-    showModalBottomSheet(
+  /// 顯示用戶選單
+  /// 
+  /// UserMenuSheet 內部會自動監聽用戶資料，不需要從外部傳入
+  void _showUserMenu(BuildContext context) {
+    UserMenuSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.85,
-        builder: (context, scrollController) {
-          return Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
-            child: Column(
-              children: [
-                // 拖動指示器
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                
-                // 標題
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: kPaddingLarge,
-                    vertical: kPaddingMedium,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.event,
-                        color: const Color(kPrimaryColorValue),
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        DateFormat('yyyy年MM月dd日 EEEE', 'zh_TW').format(selectedDay),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const Divider(height: 1),
-                
-                // 行程時間軸列表
-                Expanded(
-                  child: eventsAsync.when(
-                    loading: () => const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                    error: (error, stack) => Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            size: 48,
-                            color: Colors.red,
-                          ),
-                          const SizedBox(height: 12),
-                          Text('載入失敗：$error'),
-                        ],
-                      ),
-                    ),
-                    data: (events) {
-                      // 篩選選中日期的行程並按時間排序
-                      final selectedDayEvents = events
-                          .where((e) => e.isOnDate(selectedDay))
-                          .toList()
-                        ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-                      if (selectedDayEvents.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.event_busy,
-                                size: 64,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '這天沒有安排行程',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  _navigateToEventDetail(context, null);
-                                },
-                                icon: const Icon(Icons.add),
-                                label: const Text('新增行程'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      return ListView.builder(
-                        controller: scrollController,
-                        padding: const EdgeInsets.all(kPaddingLarge),
-                        itemCount: selectedDayEvents.length,
-                        itemBuilder: (context, index) {
-                          return _buildTimelineEventCard(
-                            selectedDayEvents[index],
-                            isFirst: index == 0,
-                            isLast: index == selectedDayEvents.length - 1,
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  /// 建立時間軸樣式的行程卡片
-  Widget _buildTimelineEventCard(
-    CalendarEvent event, {
-    bool isFirst = false,
-    bool isLast = false,
-  }) {
-    final timeRange = DateFormat('HH:mm').format(event.startTime);
-    final endTime = DateFormat('HH:mm').format(event.endTime);
-    
-    // 根據行程狀態決定顏色
-    Color statusColor;
-    IconData statusIcon;
-    
-    if (event.isPast()) {
-      statusColor = Colors.grey;
-      statusIcon = Icons.check_circle;
-    } else if (event.isOngoing()) {
-      statusColor = const Color(kSuccessColorValue);
-      statusIcon = Icons.circle;
-    } else if (event.isUpcoming()) {
-      statusColor = const Color(kWarningColorValue);
-      statusIcon = Icons.access_time;
-    } else {
-      statusColor = const Color(kPrimaryColorValue);
-      statusIcon = Icons.schedule;
-    }
-
-    return InkWell(
-      onTap: () {
-        Navigator.pop(context);
-        _navigateToEventDetail(context, event);
+      onSettings: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('設定功能開發中')),
+        );
       },
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 時間軸左側
-          SizedBox(
-            width: 80,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  timeRange,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: statusColor,
-                  ),
-                ),
-                Text(
-                  endTime,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(width: 16),
-          
-          // 時間軸中間的線和點
-          Column(
-            children: [
-              if (!isFirst)
-                Container(
-                  width: 2,
-                  height: 12,
-                  color: Colors.grey[300],
-                ),
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 2,
-                  ),
-                ),
-              ),
-              if (!isLast)
-                Container(
-                  width: 2,
-                  height: 90,
-                  color: Colors.grey[300],
-                ),
-            ],
-          ),
-          
-          const SizedBox(width: 16),
-          
-          // 行程卡片
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(kPaddingMedium),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: statusColor.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 標題
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          event.title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      // 語音建立標記
-                      if (event.metadata.createdBy == 'voice')
-                        Icon(
-                          Icons.mic,
-                          size: 16,
-                          color: statusColor,
-                        ),
-                    ],
-                  ),
-                  
-                  // 地點
-                  if (event.location != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            event.location!,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  
-                  // 備註
-                  if (event.description != null && event.description!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      event.description!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+      onSignOut: () {
+        ref.read(authControllerProvider.notifier).signOut();
+      },
     );
   }
 }

@@ -53,6 +53,59 @@ service cloud.firestore {
       allow delete: if isResourceOwner();
     }
     
+    // ==================== Calendars Collection ====================
+    
+    // 用戶只能讀寫自己的行事曆
+    match /calendars/{calendarId} {
+      // 檢查是否為行事曆擁有者（使用 ownerId 而非 userId）
+      function isCalendarOwner() {
+        return isSignedIn() && request.auth.uid == resource.data.ownerId;
+      }
+      
+      // 允許建立行事曆（必須設定 ownerId 為當前用戶）
+      allow create: if isSignedIn() && 
+                       request.resource.data.ownerId == request.auth.uid &&
+                       request.resource.data.keys().hasAll([
+                         'ownerId', 'name', 'colorValue', 'isDefault',
+                         'createdAt', 'updatedAt'
+                       ]);
+      
+      // 允許讀取自己的行事曆
+      allow read: if isCalendarOwner();
+      
+      // 允許更新自己的行事曆（不能更改 ownerId 和 createdAt）
+      allow update: if isCalendarOwner() &&
+                       request.resource.data.ownerId == resource.data.ownerId &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+      
+      // 允許刪除自己的行事曆
+      allow delete: if isCalendarOwner();
+    }
+    
+    // ==================== Memos Collection ====================
+    
+    // 用戶只能讀寫自己的備忘錄
+    match /memos/{memoId} {
+      // 允許建立備忘錄（必須設定 userId 為當前用戶）
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.keys().hasAll([
+                         'userId', 'title', 'isCompleted', 'isPinned',
+                         'priority', 'createdAt', 'updatedAt'
+                       ]);
+      
+      // 允許讀取自己的備忘錄
+      allow read: if isResourceOwner();
+      
+      // 允許更新自己的備忘錄（不能更改 userId 和 createdAt）
+      allow update: if isResourceOwner() &&
+                       request.resource.data.userId == resource.data.userId &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+      
+      // 允許刪除自己的備忘錄
+      allow delete: if isResourceOwner();
+    }
+    
     // ==================== VoiceProcessing Collection ====================
     
     // 語音處理記錄

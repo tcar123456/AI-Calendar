@@ -20,6 +20,12 @@ const String kEventsCollection = 'events';
 /// 語音處理記錄集合
 const String kVoiceProcessingCollection = 'voiceProcessing';
 
+/// 備忘錄集合
+const String kMemosCollection = 'memos';
+
+/// 行事曆集合
+const String kCalendarsCollection = 'calendars';
+
 // ==================== Storage 路徑 ====================
 
 /// 語音檔案儲存路徑格式：voice_recordings/{userId}/{timestamp}.m4a
