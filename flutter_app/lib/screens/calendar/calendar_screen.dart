@@ -79,30 +79,22 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
   
-  /// 取得用戶設定的是否顯示節日
-  /// 
-  /// 監聽用戶資料中的 showHolidays 設定
+  /// 取得當前行事曆的是否顯示節日設定
+  ///
+  /// 監聽當前選擇行事曆的 showHolidays 設定
   /// 預設為 true
   bool get _showHolidays {
-    final userDataAsync = ref.watch(currentUserDataProvider);
-    return userDataAsync.when(
-      data: (user) => user?.settings.showHolidays ?? true,
-      loading: () => true,
-      error: (_, __) => true,
-    );
+    final calendarSettings = ref.watch(selectedCalendarSettingsProvider);
+    return calendarSettings.showHolidays;
   }
 
-  /// 取得用戶設定的節日地區列表
-  /// 
-  /// 監聽用戶資料中的 holidayRegions 設定
+  /// 取得當前行事曆的節日地區列表
+  ///
+  /// 監聽當前選擇行事曆的 holidayRegions 設定
   /// 預設為 ['taiwan']
   List<String> get _holidayRegions {
-    final userDataAsync = ref.watch(currentUserDataProvider);
-    return userDataAsync.when(
-      data: (user) => user?.settings.holidayRegions ?? ['taiwan'],
-      loading: () => ['taiwan'],
-      error: (_, __) => ['taiwan'],
-    );
+    final calendarSettings = ref.watch(selectedCalendarSettingsProvider);
+    return calendarSettings.holidayRegions;
   }
 
   @override
@@ -627,6 +619,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         setState(() {
           _selectedNavIndex = 1;
         });
+        // 標記通知為已讀，清除紅點
+        ref.read(notificationLastViewedProvider.notifier).state = DateTime.now();
         break;
       case 2: // 語音輸入（顯示底部面板）
         _showVoiceInputSheet(context);

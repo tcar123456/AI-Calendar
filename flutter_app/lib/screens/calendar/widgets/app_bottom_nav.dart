@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../providers/event_provider.dart';
 import '../../../utils/constants.dart';
 
 /// 底部導航欄元件
@@ -9,10 +11,10 @@ import '../../../utils/constants.dart';
 /// 3. 麥克風（語音輸入）
 /// 4. 備忘錄
 /// 5. 我的帳號
-class AppBottomNav extends StatelessWidget {
+class AppBottomNav extends ConsumerWidget {
   /// 當前選中的頁面索引
   final int currentIndex;
-  
+
   /// 點擊導航項目的回調
   /// 參數：項目索引 (0-4)
   final ValueChanged<int> onItemTap;
@@ -24,7 +26,9 @@ class AppBottomNav extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 監聽是否有未讀通知
+    final hasUnreadNotification = ref.watch(hasUnreadNotificationProvider);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -54,6 +58,7 @@ class AppBottomNav extends StatelessWidget {
                 icon: Icons.notifications_outlined,
                 label: '通知',
                 index: 1,
+                showBadge: hasUnreadNotification,
               ),
               
               // 第三個位置：麥克風按鈕
@@ -84,10 +89,11 @@ class AppBottomNav extends StatelessWidget {
     required IconData icon,
     required String label,
     required int index,
+    bool showBadge = false,
   }) {
     final isActive = currentIndex == index;
-    final color = isActive 
-        ? const Color(kPrimaryColorValue) 
+    final color = isActive
+        ? const Color(kPrimaryColorValue)
         : Colors.grey[600]!;
 
     return InkWell(
@@ -98,10 +104,30 @@ class AppBottomNav extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: color,
-              size: 26,
+            // 使用 Stack 在圖示上疊加紅點
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  color: color,
+                  size: 26,
+                ),
+                // 紅點提示
+                if (showBadge)
+                  Positioned(
+                    top: -2,
+                    right: -4,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(

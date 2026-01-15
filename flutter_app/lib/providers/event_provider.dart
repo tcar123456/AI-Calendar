@@ -253,3 +253,45 @@ final eventControllerProvider = StateNotifierProvider<EventController, EventStat
   return EventController(firebaseService, ref);
 });
 
+// ============================================
+// 通知紅點相關 Providers
+// ============================================
+
+/// 最後查看通知的時間 Provider
+///
+/// 記錄用戶最後一次打開通知頁面的時間
+final notificationLastViewedProvider = StateProvider<DateTime?>((ref) => null);
+
+/// 是否有未讀通知 Provider
+///
+/// 計算邏輯：
+/// - 有「即將開始」（15 分鐘內）的行程
+/// - 有「正在進行」的行程，且行程開始時間在上次查看之後
+///
+/// 點擊通知頁面後，更新 lastViewed 時間，紅點消失
+final hasUnreadNotificationProvider = Provider<bool>((ref) {
+  final eventsAsync = ref.watch(allEventsProvider);
+  final lastViewed = ref.watch(notificationLastViewedProvider);
+
+  return eventsAsync.when(
+    data: (events) {
+      // 檢查是否有即將開始的行程（15 分鐘內）
+      final hasUpcoming = events.any((e) => e.isUpcoming());
+      if (hasUpcoming) return true;
+
+      // 檢查是否有正在進行的行程，且開始時間在上次查看之後
+      final hasNewOngoing = events.any((e) {
+        if (!e.isOngoing()) return false;
+        // 如果從未查看過通知，顯示紅點
+        if (lastViewed == null) return true;
+        // 如果行程開始時間在上次查看之後，顯示紅點
+        return e.startTime.isAfter(lastViewed);
+      });
+
+      return hasNewOngoing;
+    },
+    loading: () => false,
+    error: (_, __) => false,
+  );
+});
+

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'calendar_settings_model.dart';
+
 /// 行事曆模型
 /// 
 /// 代表一個獨立的行事曆，用戶可以擁有多個行事曆
@@ -33,6 +35,9 @@ class CalendarModel {
   /// 行事曆圖示（可選，使用 Material Icons 名稱）
   final String? iconName;
 
+  /// 行事曆專屬設定
+  final CalendarSettings settings;
+
   CalendarModel({
     required this.id,
     required this.ownerId,
@@ -43,12 +48,13 @@ class CalendarModel {
     required this.createdAt,
     required this.updatedAt,
     this.iconName,
-  });
+    CalendarSettings? settings,
+  }) : settings = settings ?? const CalendarSettings();
 
   /// 從 Firestore 文檔建立物件
   factory CalendarModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
+
     return CalendarModel(
       id: doc.id,
       ownerId: data['ownerId'] as String,
@@ -59,6 +65,9 @@ class CalendarModel {
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
       iconName: data['iconName'] as String?,
+      settings: CalendarSettings.fromJson(
+        data['settings'] as Map<String, dynamic>?,
+      ),
     );
   }
 
@@ -74,6 +83,9 @@ class CalendarModel {
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       iconName: json['iconName'] as String?,
+      settings: CalendarSettings.fromJson(
+        json['settings'] as Map<String, dynamic>?,
+      ),
     );
   }
 
@@ -88,6 +100,7 @@ class CalendarModel {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'iconName': iconName,
+      'settings': settings.toJson(),
     };
   }
 
@@ -103,6 +116,7 @@ class CalendarModel {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'iconName': iconName,
+      'settings': settings.toJson(),
     };
   }
 
@@ -117,6 +131,7 @@ class CalendarModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? iconName,
+    CalendarSettings? settings,
   }) {
     return CalendarModel(
       id: id ?? this.id,
@@ -128,6 +143,7 @@ class CalendarModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       iconName: iconName ?? this.iconName,
+      settings: settings ?? this.settings,
     );
   }
 

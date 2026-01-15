@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/calendar_model.dart';
+import '../models/calendar_settings_model.dart';
+import '../models/event_label_model.dart';
 import '../services/firebase_service.dart';
 import 'auth_provider.dart';
 
@@ -206,6 +208,7 @@ class CalendarController extends StateNotifier<CalendarControllerState> {
     Color? color,
     String? description,
     String? iconName,
+    CalendarSettings? settings,
   }) async {
     state = state.copyWith(isLoading: true, clearMessages: true);
 
@@ -226,21 +229,62 @@ class CalendarController extends StateNotifier<CalendarControllerState> {
         color: color,
         description: description,
         iconName: iconName,
+        settings: settings,
         updatedAt: DateTime.now(),
       );
 
       await _firebaseService.updateCalendar(calendarId, updatedCalendar);
-      
+
       state = state.copyWith(
         isLoading: false,
         successMessage: '行事曆更新成功',
       );
-      
+
       return true;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         errorMessage: '更新行事曆失敗：$e',
+      );
+      return false;
+    }
+  }
+
+  /// 更新行事曆設定
+  ///
+  /// 只更新 settings 欄位，保留其他欄位不變
+  Future<bool> updateCalendarSettings(
+    String calendarId,
+    CalendarSettings settings,
+  ) async {
+    return updateCalendar(
+      calendarId: calendarId,
+      settings: settings,
+    );
+  }
+
+  /// 更新單一標籤名稱
+  ///
+  /// [calendarId] 行事曆 ID
+  /// [labelId] 標籤 ID (label_1 ~ label_12)
+  /// [newName] 新的標籤名稱
+  Future<bool> updateLabelName(
+    String calendarId,
+    String labelId,
+    String newName,
+  ) async {
+    try {
+      final calendar = await _firebaseService.getCalendar(calendarId);
+      if (calendar == null) return false;
+
+      final newLabelNames = Map<String, String>.from(calendar.settings.labelNames);
+      newLabelNames[labelId] = newName;
+
+      final newSettings = calendar.settings.copyWith(labelNames: newLabelNames);
+      return updateCalendarSettings(calendarId, newSettings);
+    } catch (e) {
+      state = state.copyWith(
+        errorMessage: '更新標籤失敗：$e',
       );
       return false;
     }
@@ -346,9 +390,27 @@ class CalendarController extends StateNotifier<CalendarControllerState> {
 }
 
 /// 行事曆控制器 Provider
-final calendarControllerProvider = 
+final calendarControllerProvider =
     StateNotifierProvider<CalendarController, CalendarControllerState>((ref) {
   final firebaseService = ref.watch(firebaseServiceProvider);
   return CalendarController(firebaseService, ref);
+});
+
+/// 當前選擇行事曆的設定 Provider
+///
+/// 便於 UI 直接存取當前行事曆的設定
+/// 如果沒有選擇的行事曆，回傳預設設定
+final selectedCalendarSettingsProvider = Provider<CalendarSettings>((ref) {
+  final calendar = ref.watch(selectedCalendarProvider);
+  return calendar?.settings ?? const CalendarSettings();
+});
+
+/// 當前行事曆的標籤列表 Provider
+///
+/// 結合預設標籤顏色和自訂標籤名稱
+/// 如果沒有選擇的行事曆，回傳預設標籤列表
+final calendarLabelsProvider = Provider<List<EventLabel>>((ref) {
+  final settings = ref.watch(selectedCalendarSettingsProvider);
+  return settings.getLabels();
 });
 

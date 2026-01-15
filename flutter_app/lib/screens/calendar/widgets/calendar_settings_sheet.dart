@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/event_label_model.dart';
 import '../../../models/holiday_model.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../providers/calendar_provider.dart';
-import '../../../providers/event_label_provider.dart';
 import '../../../utils/constants.dart';
 import 'event_search_sheet.dart';
 
@@ -34,20 +32,11 @@ class CalendarSettingsSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 監聽用戶資料以取得節日顯示設定
-    final userDataAsync = ref.watch(currentUserDataProvider);
-    final showHolidays = userDataAsync.when(
-      data: (user) => user?.settings.showHolidays ?? true,
-      loading: () => true,
-      error: (_, __) => true,
-    );
-    
-    // 取得當前選擇的節日地區
-    final holidayRegions = userDataAsync.when(
-      data: (user) => user?.settings.holidayRegions ?? ['taiwan'],
-      loading: () => ['taiwan'],
-      error: (_, __) => ['taiwan'],
-    );
+    // 取得當前行事曆的設定
+    final calendarSettings = ref.watch(selectedCalendarSettingsProvider);
+    final showHolidays = calendarSettings.showHolidays;
+    final holidayRegions = calendarSettings.holidayRegions;
+    final showLunar = calendarSettings.showLunar;
     
     return SafeArea(
       child: Column(
@@ -100,41 +89,21 @@ class CalendarSettingsSheet extends ConsumerWidget {
             },
           ),
           
-          // 預設視圖
-          ListTile(
-            leading: const Icon(Icons.view_agenda),
-            title: const Text('預設視圖'),
-            subtitle: const Text('月視圖'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('預設視圖設定功能開發中')),
-              );
-            },
-          ),
+          
           
           // 顯示農曆
           ListTile(
             leading: const Icon(Icons.event_note),
             title: const Text('顯示農曆'),
+            subtitle: Text(showLunar ? '已開啟' : '已關閉'),
             trailing: Switch(
-              value: false,
-              onChanged: (value) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('農曆顯示功能開發中')),
-                );
-              },
+              value: showLunar,
+              activeColor: const Color(kPrimaryColorValue),
+              onChanged: (value) => _updateShowLunar(context, ref, value),
             ),
-            onTap: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('農曆顯示功能開發中')),
-              );
-            },
+            onTap: () => _updateShowLunar(context, ref, !showLunar),
           ),
-          
+
           // 顯示節日
           ListTile(
             leading: const Icon(Icons.celebration),
@@ -147,10 +116,21 @@ class CalendarSettingsSheet extends ConsumerWidget {
             ),
             onTap: () => _updateShowHolidays(context, ref, !showHolidays),
           ),
-          
-          // 節日地區選擇（常駐顯示，即使節日關閉也顯示）
-          _buildHolidayRegionsListTile(context, ref, holidayRegions),
-          
+
+          // 節日地區選擇（只在顯示節日開啟時顯示，帶動畫過渡）
+          AnimatedCrossFade(
+            firstChild: Padding(
+              padding: const EdgeInsets.only(left: 32),
+              child: _buildHolidayRegionsListTile(context, ref, holidayRegions),
+            ),
+            secondChild: const SizedBox.shrink(),
+            crossFadeState: showHolidays
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            duration: const Duration(milliseconds: 200),
+            sizeCurve: Curves.easeInOut,
+          ),
+
           const Divider(height: 16),
           
           // 刪除行事曆
@@ -196,7 +176,7 @@ class CalendarSettingsSheet extends ConsumerWidget {
     
     return ListTile(
       leading: const Icon(Icons.public),
-      title: const Text('地區選項'),
+      title: const Text('節日地區'),
       subtitle: Text(selectedRegionNames.isEmpty ? '未選擇' : selectedRegionNames),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _showRegionPickerDialog(context, ref, currentRegions),
@@ -229,11 +209,9 @@ class CalendarSettingsSheet extends ConsumerWidget {
     WidgetRef ref,
     List<String> newRegions,
   ) async {
-    final userDataAsync = ref.read(currentUserDataProvider);
-    final user = userDataAsync.value;
-    
-    if (user == null) return;
-    
+    final selectedCalendar = ref.read(selectedCalendarProvider);
+    if (selectedCalendar == null) return;
+
     // 確保至少選擇一個地區
     if (newRegions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -241,13 +219,16 @@ class CalendarSettingsSheet extends ConsumerWidget {
       );
       return;
     }
-    
+
     try {
-      // 更新 Firestore 中的設定
-      final firebaseService = ref.read(firebaseServiceProvider);
-      await firebaseService.updateUserData(user.id, {
-        'settings.holidayRegions': newRegions,
-      });
+      // 更新行事曆設定
+      final newSettings = selectedCalendar.settings.copyWith(
+        holidayRegions: newRegions,
+      );
+      await ref.read(calendarControllerProvider.notifier).updateCalendarSettings(
+        selectedCalendar.id,
+        newSettings,
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -259,23 +240,53 @@ class CalendarSettingsSheet extends ConsumerWidget {
 
   /// 更新顯示節日設定
   Future<void> _updateShowHolidays(BuildContext context, WidgetRef ref, bool value) async {
-    final userDataAsync = ref.read(currentUserDataProvider);
-    final user = userDataAsync.value;
-    
-    if (user == null) return;
-    
+    final selectedCalendar = ref.read(selectedCalendarProvider);
+    if (selectedCalendar == null) return;
+
     try {
-      // 更新 Firestore 中的設定
-      final firebaseService = ref.read(firebaseServiceProvider);
-      await firebaseService.updateUserData(user.id, {
-        'settings.showHolidays': value,
-      });
-      
+      // 更新行事曆設定
+      final newSettings = selectedCalendar.settings.copyWith(showHolidays: value);
+      await ref.read(calendarControllerProvider.notifier).updateCalendarSettings(
+        selectedCalendar.id,
+        newSettings,
+      );
+
       // 顯示提示訊息
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(value ? '已開啟節日顯示' : '已關閉節日顯示'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('更新設定失敗：$e')),
+        );
+      }
+    }
+  }
+
+  /// 更新顯示農曆設定
+  Future<void> _updateShowLunar(BuildContext context, WidgetRef ref, bool value) async {
+    final selectedCalendar = ref.read(selectedCalendarProvider);
+    if (selectedCalendar == null) return;
+
+    try {
+      // 更新行事曆設定
+      final newSettings = selectedCalendar.settings.copyWith(showLunar: value);
+      await ref.read(calendarControllerProvider.notifier).updateCalendarSettings(
+        selectedCalendar.id,
+        newSettings,
+      );
+
+      // 顯示提示訊息
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(value ? '已開啟農曆顯示' : '已關閉農曆顯示'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -464,12 +475,17 @@ class _LabelSettingsSheetState extends ConsumerState<_LabelSettingsSheet> {
   /// 儲存編輯
   void _saveEdit() {
     if (_editingLabelId != null && _editController.text.isNotEmpty) {
-      ref.read(eventLabelsProvider.notifier).updateLabelName(
-        _editingLabelId!,
-        _editController.text.trim(),
-      );
+      final selectedCalendar = ref.read(selectedCalendarProvider);
+      if (selectedCalendar != null) {
+        // 使用 CalendarController 更新標籤名稱
+        ref.read(calendarControllerProvider.notifier).updateLabelName(
+          selectedCalendar.id,
+          _editingLabelId!,
+          _editController.text.trim(),
+        );
+      }
     }
-    
+
     setState(() {
       _editingLabelId = null;
     });
@@ -496,19 +512,30 @@ class _LabelSettingsSheetState extends ConsumerState<_LabelSettingsSheet> {
     );
 
     if (confirmed == true) {
-      await ref.read(eventLabelsProvider.notifier).resetToDefault();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('標籤已重設為預設值')),
+      final selectedCalendar = ref.read(selectedCalendarProvider);
+      if (selectedCalendar != null) {
+        // 清空 labelNames，恢復使用預設名稱
+        final newSettings = selectedCalendar.settings.copyWith(
+          labelNames: {},
         );
+        await ref.read(calendarControllerProvider.notifier).updateCalendarSettings(
+          selectedCalendar.id,
+          newSettings,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('標籤已重設為預設值')),
+          );
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 監聽標籤列表
-    final labels = ref.watch(eventLabelsProvider);
+    // 監聽當前行事曆的標籤列表
+    final labels = ref.watch(calendarLabelsProvider);
     
     return SafeArea(
       child: Container(

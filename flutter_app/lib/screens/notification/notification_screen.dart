@@ -24,9 +24,18 @@ class NotificationScreen extends ConsumerStatefulWidget {
 
 class _NotificationScreenState extends ConsumerState<NotificationScreen> {
   @override
+  void initState() {
+    super.initState();
+    // 進入通知頁面時，標記為已讀
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notificationLastViewedProvider.notifier).state = DateTime.now();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // 取得所有行程
-    final eventsAsync = ref.watch(eventsProvider);
+    // 取得所有行事曆的行程（不篩選行事曆）
+    final eventsAsync = ref.watch(allEventsProvider);
 
     // 嵌入模式：不顯示 Scaffold 和 AppBar
     if (widget.embedded) {
