@@ -127,19 +127,26 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
         .toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
+    // 計算最大高度比例，避開狀態列和 AppBar
+    final screenHeight = MediaQuery.of(context).size.height;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final appBarHeight = kToolbarHeight; // AppBar 標準高度 (56px)
+    final maxHeight = screenHeight - statusBarHeight - appBarHeight;
+    final maxChildSizeValue = (maxHeight / screenHeight).clamp(0.5, 0.92);
+
     return DraggableScrollableSheet(
       // 初始顯示半屏（50%）
       initialChildSize: 0.5,
       // 最小尺寸（關閉閾值）
       minChildSize: 0.25,
-      // 最大尺寸：全屏（1.0）
-      maxChildSize: 1.0,
+      // 最大尺寸：限制在狀態列下方
+      maxChildSize: maxChildSizeValue,
       // 關鍵：設為 false 才能讓點擊外部關閉生效
       expand: false,
       // 啟用 snap 功能：滑動時自動吸附到指定位置
       snap: true,
-      // 定義吸附點：半屏(0.5) 和 全屏(1.0)
-      snapSizes: const [0.5, 1.0],
+      // 定義吸附點：半屏(0.5) 和 最大高度
+      snapSizes: [0.5, maxChildSizeValue],
       // 設定 snap 動畫時間
       snapAnimationDuration: const Duration(milliseconds: 100),
       builder: (context, scrollController) {
@@ -150,82 +157,87 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
               top: Radius.circular(24),
             ),
           ),
-          // 使用 CustomScrollView 讓整個內容區域（包括標題）都可以拖動
-          child: CustomScrollView(
-            controller: scrollController,
-            slivers: [
-              // 拖動指示器和標題區域（可拖動）
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    // 拖動指示器
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+          // 將標題區域固定在頂部，內容區域可捲動
+          child: Column(
+            children: [
+              // 固定標題區域（不捲動）
+              Column(
+                children: [
+                  // 拖動指示器
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                    
-                    // 標題區域（含新增按鈕和切換按鈕）
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: kPaddingLarge,
-                        vertical: kPaddingMedium / 2,
-                      ),
-                      child: Row(
-                        children: [
-                          // 日曆圖標
-                          const Icon(
-                            Icons.event,
-                            color: Color(kPrimaryColorValue),
-                            size: 22,
-                          ),
-                          const SizedBox(width: 10),
-                          // 日期標題
-                          Expanded(
-                            child: Text(
-                              DateFormat('yyyy年MM月dd日 EEEE', 'zh_TW').format(widget.selectedDay),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                  ),
+
+                  // 標題區域（含新增按鈕和切換按鈕）
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: kPaddingLarge,
+                      vertical: kPaddingMedium / 2,
+                    ),
+                    child: Row(
+                      children: [
+                        // 日曆圖標
+                        const Icon(
+                          Icons.event,
+                          color: Color(kPrimaryColorValue),
+                          size: 22,
+                        ),
+                        const SizedBox(width: 10),
+                        // 日期標題
+                        Expanded(
+                          child: Text(
+                            DateFormat('yyyy年MM月dd日 EEEE', 'zh_TW').format(widget.selectedDay),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          // 新增行程按鈕
-                          _buildAddEventButton(),
-                          const SizedBox(width: 8),
-                          // 檢視模式切換按鈕
-                          _buildViewModeToggle(),
-                        ],
-                      ),
+                        ),
+                        // 新增行程按鈕
+                        _buildAddEventButton(),
+                        const SizedBox(width: 8),
+                        // 檢視模式切換按鈕
+                        _buildViewModeToggle(),
+                      ],
                     ),
-                    
-                    const Divider(height: 1),
-                    
-                    // 節日顯示區域（在分隔線下方）
-                    if (holidays.isNotEmpty)
-                      _buildHolidaySection(holidays),
+                  ),
+
+                  const Divider(height: 1),
+
+                  // 節日顯示區域（在分隔線下方）
+                  if (holidays.isNotEmpty)
+                    _buildHolidaySection(holidays),
+                ],
+              ),
+
+              // 可捲動的行程列表區域
+              Expanded(
+                child: CustomScrollView(
+                  controller: scrollController,
+                  slivers: [
+                    // 行程列表（根據模式切換）
+                    if (selectedDayEvents.isEmpty)
+                      SliverFillRemaining(
+                        child: _buildEmptyState(context),
+                      )
+                    else
+                      _viewMode == EventViewMode.card
+                          ? _buildCardView(selectedDayEvents)
+                          : _buildTimelineView(selectedDayEvents),
                   ],
                 ),
               ),
-              
-              // 行程列表（根據模式切換）
-              if (selectedDayEvents.isEmpty)
-                SliverFillRemaining(
-                  child: _buildEmptyState(context),
-                )
-              else
-                _viewMode == EventViewMode.card
-                    ? _buildCardView(selectedDayEvents)
-                    : _buildTimelineView(selectedDayEvents),
             ],
           ),
         );

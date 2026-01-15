@@ -9,19 +9,23 @@ import '../../providers/event_label_provider.dart';
 import '../../utils/constants.dart';
 
 /// 行程詳情畫面
-/// 
+///
 /// 用於檢視、新增或編輯行程
 class EventDetailScreen extends ConsumerStatefulWidget {
   /// 要編輯的行程（null 表示新增）
   final CalendarEvent? event;
-  
+
   /// 預設日期（用於新增行程時）
   final DateTime? defaultDate;
+
+  /// 是否為檢視模式（預設 false，即編輯模式）
+  final bool isViewMode;
 
   const EventDetailScreen({
     super.key,
     this.event,
     this.defaultDate,
+    this.isViewMode = false,
   });
 
   @override
@@ -30,69 +34,152 @@ class EventDetailScreen extends ConsumerStatefulWidget {
 
 class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
   // 表單控制器
   late TextEditingController _titleController;
   late TextEditingController _locationController;
   late TextEditingController _descriptionController;
-  
+
   // 日期時間
   late DateTime _startDate;
   late TimeOfDay _startTime;
   late DateTime _endDate;
   late TimeOfDay _endTime;
-  
+
   // 其他設定
   late bool _isAllDay;
   /// 提醒時間選項（複選，可選擇多個）
   late Set<int> _selectedReminders;
-  
+
   // 行程標籤
   String? _selectedLabelId;
+
+  /// 是否顯示備註欄位
+  bool _showDescription = false;
+
+  /// 是否顯示地點欄位
+  bool _showLocation = false;
+
+  /// 是否為重複行程
+  bool _isRepeat = false;
+
+  /// 重複類型（daily/weekly/monthly）
+  String? _repeatType;
+
+  /// 當前是否為檢視模式
+  late bool _isCurrentlyViewMode;
 
   /// 是否為編輯模式
   bool get isEditMode => widget.event != null;
 
+  /// 是否有未儲存的變更
+  bool _hasUnsavedChanges = false;
+
+  /// 原始資料（用於判斷是否有變更）
+  late String _originalTitle;
+  late String _originalLocation;
+  late String _originalDescription;
+  late DateTime _originalStartDate;
+  late TimeOfDay _originalStartTime;
+  late DateTime _originalEndDate;
+  late TimeOfDay _originalEndTime;
+  late bool _originalIsAllDay;
+  late Set<int> _originalReminders;
+  late String? _originalLabelId;
+
   @override
   void initState() {
     super.initState();
-    
+
+    // 初始化檢視模式狀態
+    _isCurrentlyViewMode = widget.isViewMode;
+
     if (isEditMode) {
       // 編輯模式：載入現有資料
       final event = widget.event!;
       _titleController = TextEditingController(text: event.title);
       _locationController = TextEditingController(text: event.location ?? '');
       _descriptionController = TextEditingController(text: event.description ?? '');
-      
+
       _startDate = event.startTime;
       _startTime = TimeOfDay.fromDateTime(event.startTime);
       _endDate = event.endTime;
       _endTime = TimeOfDay.fromDateTime(event.endTime);
-      
+
       _isAllDay = event.isAllDay;
       // 將單一提醒時間轉換為 Set（向後相容）
       _selectedReminders = event.reminderMinutes > 0 ? {event.reminderMinutes} : {};
       _selectedLabelId = event.labelId;
+      // 如果有備註，預設展開備註欄位
+      _showDescription = event.description?.isNotEmpty ?? false;
+      // 如果有地點，預設展開地點欄位
+      _showLocation = event.location?.isNotEmpty ?? false;
     } else {
       // 新增模式：使用預設值
       _titleController = TextEditingController();
       _locationController = TextEditingController();
       _descriptionController = TextEditingController();
-      
+
       final defaultDate = widget.defaultDate ?? DateTime.now();
       _startDate = defaultDate;
       _startTime = const TimeOfDay(hour: 9, minute: 0);
       _endDate = defaultDate;
       _endTime = const TimeOfDay(hour: 10, minute: 0);
-      
+
       _isAllDay = false;
       _selectedReminders = {kDefaultReminderMinutes}; // 預設 15 分鐘前提醒
       _selectedLabelId = DefaultEventLabels.defaultLabel.id; // 預設使用第一個標籤（工作）
+    }
+
+    // 儲存原始資料
+    _saveOriginalData();
+
+    // 監聽輸入變化
+    _titleController.addListener(_checkForChanges);
+    _locationController.addListener(_checkForChanges);
+    _descriptionController.addListener(_checkForChanges);
+  }
+
+  /// 儲存原始資料
+  void _saveOriginalData() {
+    _originalTitle = _titleController.text;
+    _originalLocation = _locationController.text;
+    _originalDescription = _descriptionController.text;
+    _originalStartDate = _startDate;
+    _originalStartTime = _startTime;
+    _originalEndDate = _endDate;
+    _originalEndTime = _endTime;
+    _originalIsAllDay = _isAllDay;
+    _originalReminders = Set.from(_selectedReminders);
+    _originalLabelId = _selectedLabelId;
+  }
+
+  /// 檢查是否有變更
+  void _checkForChanges() {
+    final hasChanges = _titleController.text != _originalTitle ||
+        _locationController.text != _originalLocation ||
+        _descriptionController.text != _originalDescription ||
+        _startDate != _originalStartDate ||
+        _startTime != _originalStartTime ||
+        _endDate != _originalEndDate ||
+        _endTime != _originalEndTime ||
+        _isAllDay != _originalIsAllDay ||
+        !_selectedReminders.containsAll(_originalReminders) ||
+        !_originalReminders.containsAll(_selectedReminders) ||
+        _selectedLabelId != _originalLabelId;
+
+    if (hasChanges != _hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = hasChanges;
+      });
     }
   }
 
   @override
   void dispose() {
+    _titleController.removeListener(_checkForChanges);
+    _locationController.removeListener(_checkForChanges);
+    _descriptionController.removeListener(_checkForChanges);
     _titleController.dispose();
     _locationController.dispose();
     _descriptionController.dispose();
@@ -103,133 +190,566 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   Widget build(BuildContext context) {
     final eventState = ref.watch(eventControllerProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditMode ? '編輯行程' : '新增行程'),
-        actions: [
-          // 刪除按鈕（僅編輯模式）
-          if (isEditMode)
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () => _handleDelete(),
+    // 計算高度：螢幕高度減去狀態列高度和 AppBar 高度，確保底部面板在狀態列下方
+    final screenHeight = MediaQuery.of(context).size.height;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final appBarHeight = kToolbarHeight; // AppBar 標準高度 (56px)
+    final bottomSheetHeight = screenHeight - statusBarHeight - appBarHeight;
+
+    return PopScope(
+      canPop: _canPop(),
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        await _handleBackNavigation();
+      },
+      child: Container(
+        height: bottomSheetHeight,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.translucent,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                // 頂部拖動指示器和按鈕區域
+                _buildHeader(eventState),
+
+                // 內容區域
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: kPaddingMedium),
+                    children: [
+                      // 標題
+                      if (_isCurrentlyViewMode)
+                        _buildViewField(
+                          label: '行程標題',
+                          value: _titleController.text,
+                          icon: Icons.title,
+                        )
+                      else
+                        TextFormField(
+                          controller: _titleController,
+                          decoration: const InputDecoration(
+                            labelText: '行程標題 *',
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return '請輸入行程標題';
+                            }
+                            return null;
+                          },
+                        ),
+
+                      const SizedBox(height: 16),
+
+                      // 全天行程開關
+                      if (_isCurrentlyViewMode)
+                        _buildViewField(
+                          label: '行程類型',
+                          value: _isAllDay ? '全天行程' : '一般行程',
+                          icon: _isAllDay ? Icons.event_available : Icons.access_time,
+                        )
+                      else
+                        SwitchListTile(
+                          title: const Text('全天行程'),
+                          value: _isAllDay,
+                          onChanged: (value) {
+                            setState(() {
+                              _isAllDay = value;
+                            });
+                            _checkForChanges();
+                          },
+                          contentPadding: EdgeInsets.zero,
+                        ),
+
+                      const SizedBox(height: 16),
+
+                      // 開始時間
+                      if (_isCurrentlyViewMode)
+                        _buildViewField(
+                          label: '開始時間',
+                          value: _isAllDay
+                              ? DateFormat('yyyy/MM/dd').format(_startDate)
+                              : '${DateFormat('yyyy/MM/dd').format(_startDate)} ${_startTime.format(context)}',
+                          icon: Icons.calendar_today,
+                        )
+                      else
+                        _buildDateTimeField(
+                          label: '開始',
+                          date: _startDate,
+                          time: _startTime,
+                          onDateTap: () => _selectDate(context, true),
+                          onTimeTap: () => _selectTime(context, true),
+                        ),
+
+                      const SizedBox(height: 16),
+
+                      // 結束時間
+                      if (_isCurrentlyViewMode)
+                        _buildViewField(
+                          label: '結束時間',
+                          value: _isAllDay
+                              ? DateFormat('yyyy/MM/dd').format(_endDate)
+                              : '${DateFormat('yyyy/MM/dd').format(_endDate)} ${_endTime.format(context)}',
+                          icon: Icons.event,
+                        )
+                      else
+                        _buildDateTimeField(
+                          label: '結束',
+                          date: _endDate,
+                          time: _endTime,
+                          onDateTap: () => _selectDate(context, false),
+                          onTimeTap: () => _selectTime(context, false),
+                        ),
+
+                      const SizedBox(height: 16),
+
+                      // 行程標籤
+                      _buildLabelField(),
+
+                      const SizedBox(height: 16),
+
+                      // 提醒時間
+                      _buildReminderField(),
+
+                      const SizedBox(height: 16),
+
+                      // 地點（開關控制）
+                      _buildLocationField(),
+
+                      const SizedBox(height: 4),
+
+                      // 重複行程（僅在編輯/新增模式顯示開關）
+                      _buildRepeatField(),
+
+                      const SizedBox(height: 4),
+
+                      // 備註（開關控制）
+                      _buildDescriptionField(),
+
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 建立頂部區域（拖動指示器和按鈕）
+  Widget _buildHeader(EventState eventState) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        children: [
+          // 拖動指示器
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // 按鈕列
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // 左側：返回按鈕
+              IconButton(
+                onPressed: () => _handleBackNavigation(),
+                icon: const Icon(Icons.arrow_back),
+                color: Colors.grey[600],
+              ),
+
+              // 右側：操作按鈕
+              if (_isCurrentlyViewMode)
+                // 檢視模式：顯示「...」選單
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_horiz, color: Colors.grey[600]),
+                  offset: const Offset(0, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  popUpAnimationStyle: AnimationStyle(
+                    duration: const Duration(milliseconds: 100),
+                  ),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                         
+                          SizedBox(width: 12),
+                          Text(
+                            '編輯',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'duplicate',
+                      child: Row(
+                        children: [
+                          
+                          SizedBox(width: 12),
+                          Text(
+                            '複製',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                         
+                          SizedBox(width: 12),
+                          Text(
+                            '刪除',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _switchToEditMode();
+                    } else if (value == 'duplicate') {
+                      _handleDuplicate();
+                    } else if (value == 'delete') {
+                      _handleDelete();
+                    }
+                  },
+                )
+              else
+                // 編輯/新增模式：顯示儲存按鈕
+                TextButton(
+                  onPressed: eventState.isLoading ? null : _handleSave,
+                  child: eventState.isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(kPrimaryColorValue),
+                          ),
+                        )
+                      : const Text(
+                          '儲存',
+                          style: TextStyle(
+                            color: Color(kPrimaryColorValue),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+            ],
+          ),
         ],
       ),
-      
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(kPaddingMedium),
-          children: [
-            // 標題
-            TextFormField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: '行程標題 *',
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return '請輸入行程標題';
-                }
-                return null;
-              },
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 全天行程開關
-            SwitchListTile(
-              title: const Text('全天行程'),
-              value: _isAllDay,
-              onChanged: (value) {
-                setState(() {
-                  _isAllDay = value;
-                });
-              },
-              contentPadding: EdgeInsets.zero,
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 開始時間
-            _buildDateTimeField(
-              label: '開始',
-              date: _startDate,
-              time: _startTime,
-              onDateTap: () => _selectDate(context, true),
-              onTimeTap: () => _selectTime(context, true),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 結束時間
-            _buildDateTimeField(
-              label: '結束',
-              date: _endDate,
-              time: _endTime,
-              onDateTap: () => _selectDate(context, false),
-              onTimeTap: () => _selectTime(context, false),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 地點
-            TextFormField(
-              controller: _locationController,
-              decoration: const InputDecoration(
-                labelText: '地點',
-                prefixIcon: Icon(Icons.location_on),
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 備註
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: '備註',
-                prefixIcon: Icon(Icons.notes),
-                alignLabelWithHint: true,
-              ),
-              maxLines: 3,
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 行程標籤
-            _buildLabelField(),
-            
-            const SizedBox(height: 16),
-            
-            // 提醒時間
-            _buildReminderField(),
-            
-            const SizedBox(height: 32),
-            
-            // 儲存按鈕
-            SizedBox(
-              height: 56,
-              child: ElevatedButton(
-                onPressed: eventState.isLoading ? null : _handleSave,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(kPrimaryColorValue),
-                  foregroundColor: Colors.white,
-                ),
-                child: eventState.isLoading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(isEditMode ? '更新行程' : '建立行程'),
-              ),
-            ),
-          ],
+    );
+  }
+
+  /// 建立地點欄位（帶開關控制）
+  Widget _buildLocationField() {
+    // 檢視模式：顯示地點內容（如果有的話）
+    if (_isCurrentlyViewMode) {
+      if (_locationController.text.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      return _buildViewField(
+        label: '地點',
+        value: _locationController.text,
+        icon: Icons.location_on,
+      );
+    }
+
+    // 編輯/新增模式：顯示開關
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 地點開關
+        SwitchListTile(
+          title: const Text('地點'),
+          value: _showLocation,
+          onChanged: (value) {
+            setState(() {
+              _showLocation = value;
+            });
+          },
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.location_on),
         ),
+
+        // 地點輸入框（展開時顯示）
+        if (_showLocation) ...[
+          const SizedBox(height: 4),
+          TextFormField(
+            controller: _locationController,
+            decoration: InputDecoration(
+              hintText: '輸入地點...',
+              filled: true,
+              fillColor: Colors.grey[100],
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 建立備註欄位（帶開關控制）
+  Widget _buildDescriptionField() {
+    // 檢視模式：顯示備註內容（如果有的話）
+    if (_isCurrentlyViewMode) {
+      if (_descriptionController.text.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      return _buildViewField(
+        label: '備註',
+        value: _descriptionController.text,
+        icon: Icons.notes,
+        maxLines: 3,
+      );
+    }
+
+    // 編輯/新增模式：顯示開關
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 備註開關
+        SwitchListTile(
+          title: const Text('備註'),
+          value: _showDescription,
+          onChanged: (value) {
+            setState(() {
+              _showDescription = value;
+            });
+          },
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.notes),
+        ),
+
+        // 備註輸入框（展開時顯示）
+        if (_showDescription) ...[
+          const SizedBox(height: 4),
+          TextFormField(
+            controller: _descriptionController,
+            decoration: InputDecoration(
+              hintText: '輸入備註內容...',
+              filled: true,
+              fillColor: Colors.grey[100],
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            maxLines: 3,
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 建立重複行程欄位
+  Widget _buildRepeatField() {
+    // 檢視模式：如果有重複設定則顯示
+    if (_isCurrentlyViewMode) {
+      if (!_isRepeat || _repeatType == null) {
+        return const SizedBox.shrink();
+      }
+      final repeatText = {
+        'daily': '每日',
+        'weekly': '每週',
+        'monthly': '每月',
+      }[_repeatType] ?? '';
+      return _buildViewField(
+        label: '重複',
+        value: repeatText,
+        icon: Icons.repeat,
+      );
+    }
+
+    // 編輯/新增模式：顯示開關和選項
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 重複開關
+        SwitchListTile(
+          title: const Text('重複'),
+          value: _isRepeat,
+          onChanged: (value) {
+            setState(() {
+              _isRepeat = value;
+              if (!value) {
+                _repeatType = null;
+              } else if (_repeatType == null) {
+                _repeatType = 'daily'; // 預設每日
+              }
+            });
+            _checkForChanges();
+          },
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.repeat),
+        ),
+
+        // 重複選項（展開時顯示）
+        if (_isRepeat) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              _buildRepeatOption('daily', '每日'),
+              const SizedBox(width: 12),
+              _buildRepeatOption('weekly', '每週'),
+              const SizedBox(width: 12),
+              _buildRepeatOption('monthly', '每月'),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 建立重複選項按鈕
+  Widget _buildRepeatOption(String value, String label) {
+    final isSelected = _repeatType == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _repeatType = value;
+          });
+          _checkForChanges();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(kPrimaryColorValue) : Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.black87,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 判斷是否可以直接關閉頁面
+  bool _canPop() {
+    // 檢視模式：可以直接關閉
+    if (_isCurrentlyViewMode) return true;
+
+    // 編輯模式：如果是從檢視模式進入的，不能直接關閉（要回到檢視模式）
+    if (!_isCurrentlyViewMode && isEditMode && widget.isViewMode) {
+      return false;
+    }
+
+    // 編輯/新增模式但沒有變更：可以直接關閉
+    if (!_hasUnsavedChanges) return true;
+
+    // 有未儲存的變更：不能直接關閉
+    return false;
+  }
+
+  /// 處理返回導航
+  Future<void> _handleBackNavigation() async {
+    // 如果在編輯模式且原本是從檢視模式進來的，返回檢視模式
+    if (!_isCurrentlyViewMode && isEditMode && widget.isViewMode) {
+      // 如果有未儲存的變更，詢問是否捨棄
+      if (_hasUnsavedChanges) {
+        final shouldDiscard = await _showDiscardChangesDialog();
+        if (shouldDiscard != true) return;
+
+        // 恢復原始資料
+        _restoreOriginalData();
+      }
+
+      setState(() {
+        _isCurrentlyViewMode = true;
+        _hasUnsavedChanges = false;
+      });
+      return;
+    }
+
+    // 如果有未儲存的變更，顯示確認對話框
+    if (_hasUnsavedChanges) {
+      final shouldDiscard = await _showDiscardChangesDialog();
+      if (shouldDiscard == true && mounted) {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
+    // 其他情況直接返回
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  /// 恢復原始資料
+  void _restoreOriginalData() {
+    _titleController.text = _originalTitle;
+    _locationController.text = _originalLocation;
+    _descriptionController.text = _originalDescription;
+    _startDate = _originalStartDate;
+    _startTime = _originalStartTime;
+    _endDate = _originalEndDate;
+    _endTime = _originalEndTime;
+    _isAllDay = _originalIsAllDay;
+    _selectedReminders = Set.from(_originalReminders);
+    _selectedLabelId = _originalLabelId;
+  }
+
+  /// 顯示捨棄變更確認對話框
+  Future<bool?> _showDiscardChangesDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('捨棄變更？'),
+        content: const Text('您有未儲存的變更，確定要捨棄嗎？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('捨棄'),
+          ),
+        ],
       ),
     );
   }
@@ -323,7 +843,60 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   Widget _buildLabelField() {
     // 監聽標籤列表
     final labels = ref.watch(eventLabelsProvider);
-    
+
+    // 檢視模式：顯示當前標籤
+    if (_isCurrentlyViewMode) {
+      final currentLabel = labels.firstWhere(
+        (label) => label.id == _selectedLabelId,
+        orElse: () => labels.first,
+      );
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '行程標籤',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: currentLabel.color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  currentLabel.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 編輯模式：顯示下拉選單
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -335,7 +908,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        
+
         // 使用下拉式選單選擇標籤
         DropdownButtonFormField<String>(
           value: _selectedLabelId,
@@ -383,6 +956,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               setState(() {
                 _selectedLabelId = value;
               });
+              _checkForChanges();
             }
           },
           // 自訂下拉選單樣式
@@ -422,6 +996,52 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 建立提醒時間選擇欄位（複選）
   Widget _buildReminderField() {
+    // 檢視模式：顯示當前提醒時間
+    if (_isCurrentlyViewMode) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '提醒時間',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.notifications_outlined,
+                  size: 20,
+                  color: Colors.grey[600],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _getSelectedRemindersText(),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 編輯模式：顯示可選擇的欄位
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -475,18 +1095,19 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         options: _reminderOptions,
       ),
     );
-    
+
     if (result != null) {
       setState(() {
         _selectedReminders = result;
       });
+      _checkForChanges();
     }
   }
 
   /// 選擇日期
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     final initialDate = isStart ? _startDate : _endDate;
-    
+
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: initialDate,
@@ -509,13 +1130,14 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           }
         }
       });
+      _checkForChanges();
     }
   }
 
   /// 選擇時間（使用滾動選取器）
   Future<void> _selectTime(BuildContext context, bool isStart) async {
     final initialTime = isStart ? _startTime : _endTime;
-    
+
     // 使用自訂的滾動時間選擇器
     await showModalBottomSheet(
       context: context,
@@ -532,6 +1154,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               _endTime = time;
             }
           });
+          _checkForChanges();
         },
       ),
     );
@@ -648,6 +1271,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     }
 
     if (success && mounted) {
+      // 儲存成功，重置變更標記
+      setState(() {
+        _hasUnsavedChanges = false;
+      });
       Navigator.of(context).pop();
     }
   }
@@ -680,6 +1307,114 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         Navigator.of(context).pop();
       }
     }
+  }
+
+  /// 切換到編輯模式
+  void _switchToEditMode() {
+    setState(() {
+      _isCurrentlyViewMode = false;
+    });
+  }
+
+  /// 處理複製行程
+  Future<void> _handleDuplicate() async {
+    if (!isEditMode) return;
+
+    // 組合日期和時間
+    final startDateTime = DateTime(
+      _startDate.year,
+      _startDate.month,
+      _startDate.day,
+      _isAllDay ? 0 : _startTime.hour,
+      _isAllDay ? 0 : _startTime.minute,
+    );
+
+    final endDateTime = DateTime(
+      _endDate.year,
+      _endDate.month,
+      _endDate.day,
+      _isAllDay ? 23 : _endTime.hour,
+      _isAllDay ? 59 : _endTime.minute,
+    );
+
+    final eventController = ref.read(eventControllerProvider.notifier);
+
+    // 取得提醒時間（使用最早的提醒，或 0 表示不提醒）
+    final reminderMinutes = _selectedReminders.isEmpty
+        ? 0
+        : (_selectedReminders.toList()..sort()).first;
+
+    // 建立複製的行程（標題加上「副本」）
+    final eventId = await eventController.createManualEvent(
+      title: '${_titleController.text.trim()}（副本）',
+      startTime: startDateTime,
+      endTime: endDateTime,
+      location: _locationController.text.trim().isEmpty
+          ? null
+          : _locationController.text.trim(),
+      description: _descriptionController.text.trim().isEmpty
+          ? null
+          : _descriptionController.text.trim(),
+      reminderMinutes: reminderMinutes,
+      isAllDay: _isAllDay,
+      labelId: _selectedLabelId,
+    );
+
+    if (eventId != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('行程已複製')),
+      );
+      Navigator.of(context).pop();
+    }
+  }
+
+  /// 建立檢視模式的只讀欄位
+  Widget _buildViewField({
+    required String label,
+    required String value,
+    required IconData icon,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            crossAxisAlignment: maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20, color: Colors.grey[600]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black87,
+                  ),
+                  maxLines: maxLines,
+                  overflow: maxLines > 1 ? TextOverflow.visible : TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

@@ -6,10 +6,16 @@ import '../../providers/memo_provider.dart';
 import '../../utils/constants.dart';
 
 /// 備忘錄主畫面
-/// 
+///
 /// 顯示用戶的所有備忘錄，支援新增、編輯、刪除、完成等操作
 class MemoScreen extends ConsumerStatefulWidget {
-  const MemoScreen({super.key});
+  /// 是否嵌入在其他頁面中（不顯示獨立的 Scaffold）
+  final bool embedded;
+
+  const MemoScreen({
+    super.key,
+    this.embedded = false,
+  });
 
   @override
   ConsumerState<MemoScreen> createState() => _MemoScreenState();
@@ -33,6 +39,52 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    // 嵌入模式：使用簡化的佈局，不顯示獨立的 Scaffold
+    if (widget.embedded) {
+      return Column(
+        children: [
+          // Tab 選項
+          Container(
+            color: Theme.of(context).primaryColor,
+            child: TabBar(
+              controller: _tabController,
+              indicatorColor: Colors.white,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              tabs: const [
+                Tab(text: '待辦事項'),
+                Tab(text: '已完成'),
+              ],
+            ),
+          ),
+          // Tab 內容
+          Expanded(
+            child: Stack(
+              children: [
+                TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildPendingMemoList(),
+                    _buildCompletedMemoList(),
+                  ],
+                ),
+                // 浮動新增按鈕
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: FloatingActionButton(
+                    onPressed: () => _showMemoEditor(context, null),
+                    backgroundColor: const Color(kPrimaryColorValue),
+                    child: const Icon(Icons.add, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('備忘錄'),
@@ -452,19 +504,21 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.memo != null;
-    
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(kPaddingLarge),
-          child: Column(
+
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(kPaddingLarge),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -615,7 +669,8 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
                       : Text(isEditing ? '儲存變更' : '新增備忘錄'),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

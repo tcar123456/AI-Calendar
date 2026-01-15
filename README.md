@@ -9,9 +9,12 @@
 ## 📱 主要功能
 
 - ✅ **基礎行事曆功能**：建立、編輯、刪除、檢視行程
+- 📅 **多行事曆管理**：支援建立多個行事曆，每個行事曆可設定不同顏色
+- 🏷️ **行程標籤分類**：12 種預定義標籤（工作、個人、會議、生日等）
 - 🎤 **AI 語音建立行程**：口語化描述自動轉換為結構化行程
 - 🔔 **行程提醒推播**：透過 Firebase Cloud Messaging 推送通知
 - 🔐 **多種登入方式**：Email/密碼、Google、Apple 登入
+- 📝 **備忘錄功能**：待辦事項管理，支援優先級和釘選
 - 📱 **跨平台支援**：iOS、Android、Web 三端通用
 - 🌐 **即時同步**：所有裝置上的行程資料即時更新
 
@@ -77,7 +80,9 @@ AI-Calendar-App/
 │   └── requirements.txt              # Python 依賴
 │
 ├── 📖 DEPLOYMENT_GUIDE.md             # 完整部署指南（重要！）
-└── README.md                         # 本文件
+├── 📘 CLAUDE.md                       # Claude Code 開發指南
+├── 🎤 VOICE_OPTIMIZATION_GUIDE.md    # 語音功能優化指南
+└── 📄 README.md                       # 本文件
 ```
 
 ---
@@ -271,6 +276,32 @@ VoiceProvider → 語音狀態
 }
 ```
 
+#### calendars/{calendarId}
+```json
+{
+  "ownerId": "user_id",
+  "name": "工作行事曆",
+  "colorValue": 4294198070,  // Color 的整數表示
+  "isDefault": false,
+  "createdAt": Timestamp,
+  "updatedAt": Timestamp
+}
+```
+
+#### memos/{memoId}
+```json
+{
+  "userId": "user_id",
+  "title": "待辦事項標題",
+  "content": "詳細內容",
+  "isCompleted": false,
+  "isPinned": false,
+  "priority": 0,  // 0-2: 低、中、高
+  "createdAt": Timestamp,
+  "updatedAt": Timestamp
+}
+```
+
 ---
 
 ## 🔒 安全性設計
@@ -378,22 +409,72 @@ firebase emulators:start
 ## 📈 未來功能規劃
 
 ### Phase 2（近期）
-- [ ] Google / Apple 登入
 - [ ] 行程分享功能
 - [ ] 日曆匯入/匯出（iCal）
 - [ ] 深色模式
+- [ ] 排程未來通知（需整合 Cloud Scheduler）
 
 ### Phase 3（中期）
 - [ ] 週期性行程（每週、每月）
-- [ ] 行程分類標籤
 - [ ] 多人協作行程
 - [ ] 語音編輯行程
+- [ ] 離線模式與本地快取
 
 ### Phase 4（長期）
 - [ ] AI 智能排程建議
 - [ ] 與 Google Calendar 整合
 - [ ] 桌面版應用程式
 - [ ] 團隊版功能
+
+### ✅ 已實作功能
+- [x] Google / Apple 登入
+- [x] 行程分類標籤（12 種預定義標籤）
+- [x] 多行事曆管理
+- [x] 備忘錄功能
+
+---
+
+## ⚠️ 已知限制
+
+根據目前的實作，以下功能尚未支援或有限制：
+
+1. **排程通知**：需要 Cloud Scheduler 整合（目前僅在行程建立時發送即時通知）
+2. **週期性行程**：尚不支援重複行程（每日/每週/每月）
+3. **行程分享**：尚無多人協作功能
+4. **離線模式**：無本地快取，需要網路連線
+5. **行事曆匯入/匯出**：尚不支援 iCal 或 Google Calendar 同步
+6. **語音編輯**：無法用語音編輯現有行程（僅能建立新行程）
+
+詳細的限制說明請參閱 [CLAUDE.md](./CLAUDE.md)。
+
+---
+
+## 🎯 多行事曆功能
+
+每位用戶可以建立多個行事曆，方便分類管理不同類型的行程：
+
+- **預設行事曆**：首次使用時自動建立
+- **自訂顏色**：每個行事曆可設定專屬顏色
+- **獨立管理**：可以隨時切換顯示不同行事曆
+- **批次刪除**：刪除行事曆時，其下所有行程都會一併刪除
+- **向下相容**：舊版建立的行程（無 `calendarId`）會自動顯示在第一個可用的行事曆
+
+### 行程標籤系統
+
+支援 12 種預定義標籤類型，讓行程分類更清晰：
+
+- 🏢 **工作** (work)
+- 👤 **個人** (personal)
+- 👥 **會議** (meeting)
+- 🎂 **生日** (birthday)
+- 📅 **預約** (appointment)
+- 📚 **學習** (study)
+- 💪 **運動** (exercise)
+- ✈️ **旅遊** (travel)
+- 🔔 **提醒** (reminder)
+- 🎄 **假期** (holiday)
+- 👨‍👩‍👧‍👦 **家庭** (family)
+- 📝 **其他** (other)
 
 ---
 

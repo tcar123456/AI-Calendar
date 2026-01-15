@@ -189,11 +189,13 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(kPaddingMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(kPaddingMedium),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // 用戶頭像區域
             _buildAvatarSection(themeColor),
             
@@ -212,8 +214,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             // 登出按鈕
             _buildSignOutButton(),
             
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );

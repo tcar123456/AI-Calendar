@@ -67,10 +67,15 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
     final calendarsAsync = ref.watch(calendarsProvider);
     final selectedCalendar = ref.watch(selectedCalendarProvider);
 
+    // 計算最大高度：螢幕高度減去狀態列和 AppBar 高度，確保底部面板在狀態列下方
+    final maxSheetHeight = MediaQuery.of(context).size.height -
+        MediaQuery.of(context).padding.top -
+        kToolbarHeight;
+
     return SafeArea(
       child: Container(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          maxHeight: maxSheetHeight,
         ),
         child: SingleChildScrollView(
           child: Column(

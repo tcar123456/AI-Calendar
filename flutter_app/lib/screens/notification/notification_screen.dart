@@ -7,10 +7,16 @@ import '../../utils/constants.dart';
 import '../calendar/event_detail_screen.dart';
 
 /// 通知畫面
-/// 
+///
 /// 顯示即將到來的行程提醒和通知
 class NotificationScreen extends ConsumerStatefulWidget {
-  const NotificationScreen({super.key});
+  /// 是否嵌入在其他頁面中（不顯示 AppBar）
+  final bool embedded;
+
+  const NotificationScreen({
+    super.key,
+    this.embedded = false,
+  });
 
   @override
   ConsumerState<NotificationScreen> createState() => _NotificationScreenState();
@@ -21,6 +27,24 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
   Widget build(BuildContext context) {
     // 取得所有行程
     final eventsAsync = ref.watch(eventsProvider);
+
+    // 嵌入模式：不顯示 Scaffold 和 AppBar
+    if (widget.embedded) {
+      return eventsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('載入失敗：$error'),
+            ],
+          ),
+        ),
+        data: (events) => _buildNotificationContent(events),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -51,136 +75,142 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
             ],
           ),
         ),
-        data: (events) {
-          // 分類行程
-          final now = DateTime.now();
-          
-          // 即將開始的行程（15分鐘內）
-          final upcomingEvents = events.where((e) => e.isUpcoming()).toList();
-          
-          // 正在進行的行程
-          final ongoingEvents = events.where((e) => e.isOngoing()).toList();
-          
-          // 今日剩餘行程（今天還沒開始的行程）
-          final todayEvents = events.where((e) {
-            final eventDate = DateTime(e.startTime.year, e.startTime.month, e.startTime.day);
-            final today = DateTime(now.year, now.month, now.day);
-            return eventDate.isAtSameMomentAs(today) && 
-                   e.startTime.isAfter(now) &&
-                   !e.isUpcoming();
-          }).toList()
-            ..sort((a, b) => a.startTime.compareTo(b.startTime));
-          
-          // 明天的行程
-          final tomorrow = DateTime(now.year, now.month, now.day + 1);
-          final tomorrowEvents = events.where((e) {
-            final eventDate = DateTime(e.startTime.year, e.startTime.month, e.startTime.day);
-            return eventDate.isAtSameMomentAs(tomorrow);
-          }).toList()
-            ..sort((a, b) => a.startTime.compareTo(b.startTime));
-          
-          // 本週剩餘行程（不含今天和明天）
-          final weekEnd = now.add(Duration(days: 7 - now.weekday));
-          final thisWeekEvents = events.where((e) {
-            final eventDate = DateTime(e.startTime.year, e.startTime.month, e.startTime.day);
-            final todayDate = DateTime(now.year, now.month, now.day);
-            final tomorrowDate = DateTime(now.year, now.month, now.day + 1);
-            return eventDate.isAfter(tomorrowDate) && 
-                   eventDate.isBefore(weekEnd.add(const Duration(days: 1)));
-          }).toList()
-            ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-          // 計算總通知數
-          final totalNotifications = upcomingEvents.length + 
-                                      ongoingEvents.length + 
-                                      todayEvents.length + 
-                                      tomorrowEvents.length +
-                                      thisWeekEvents.length;
-
-          if (totalNotifications == 0) {
-            return _buildEmptyState();
-          }
-
-          return ListView(
-            padding: const EdgeInsets.all(kPaddingMedium),
-            children: [
-              // 正在進行的行程
-              if (ongoingEvents.isNotEmpty) ...[
-                _buildSectionHeader(
-                  icon: Icons.play_circle,
-                  title: '正在進行',
-                  color: const Color(kSuccessColorValue),
-                  count: ongoingEvents.length,
-                ),
-                ...ongoingEvents.map((e) => _buildNotificationCard(
-                  event: e,
-                  type: NotificationType.ongoing,
-                )),
-                const SizedBox(height: kPaddingMedium),
-              ],
-              
-              // 即將開始的行程
-              if (upcomingEvents.isNotEmpty) ...[
-                _buildSectionHeader(
-                  icon: Icons.notifications_active,
-                  title: '即將開始（15分鐘內）',
-                  color: const Color(kWarningColorValue),
-                  count: upcomingEvents.length,
-                ),
-                ...upcomingEvents.map((e) => _buildNotificationCard(
-                  event: e,
-                  type: NotificationType.upcoming,
-                )),
-                const SizedBox(height: kPaddingMedium),
-              ],
-              
-              // 今日剩餘行程
-              if (todayEvents.isNotEmpty) ...[
-                _buildSectionHeader(
-                  icon: Icons.today,
-                  title: '今日待辦',
-                  color: const Color(kPrimaryColorValue),
-                  count: todayEvents.length,
-                ),
-                ...todayEvents.map((e) => _buildNotificationCard(
-                  event: e,
-                  type: NotificationType.today,
-                )),
-                const SizedBox(height: kPaddingMedium),
-              ],
-              
-              // 明天的行程
-              if (tomorrowEvents.isNotEmpty) ...[
-                _buildSectionHeader(
-                  icon: Icons.event,
-                  title: '明天',
-                  color: Colors.blue,
-                  count: tomorrowEvents.length,
-                ),
-                ...tomorrowEvents.map((e) => _buildNotificationCard(
-                  event: e,
-                  type: NotificationType.tomorrow,
-                )),
-                const SizedBox(height: kPaddingMedium),
-              ],
-              
-              // 本週剩餘行程
-              if (thisWeekEvents.isNotEmpty) ...[
-                _buildSectionHeader(
-                  icon: Icons.date_range,
-                  title: '本週',
-                  color: Colors.purple,
-                  count: thisWeekEvents.length,
-                ),
-                ...thisWeekEvents.map((e) => _buildNotificationCard(
-                  event: e,
-                  type: NotificationType.thisWeek,
-                )),
-              ],
-            ],
-          );
-        },
+        data: (events) => _buildNotificationContent(events),
       ),
+    );
+  }
+
+  /// 建立通知內容
+  Widget _buildNotificationContent(List<CalendarEvent> events) {
+    // 分類行程
+    final now = DateTime.now();
+
+    // 即將開始的行程（15分鐘內）
+    final upcomingEvents = events.where((e) => e.isUpcoming()).toList();
+
+    // 正在進行的行程
+    final ongoingEvents = events.where((e) => e.isOngoing()).toList();
+
+    // 今日剩餘行程（今天還沒開始的行程）
+    final todayEvents = events.where((e) {
+      final eventDate =
+          DateTime(e.startTime.year, e.startTime.month, e.startTime.day);
+      final today = DateTime(now.year, now.month, now.day);
+      return eventDate.isAtSameMomentAs(today) &&
+          e.startTime.isAfter(now) &&
+          !e.isUpcoming();
+    }).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    // 明天的行程
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final tomorrowEvents = events.where((e) {
+      final eventDate =
+          DateTime(e.startTime.year, e.startTime.month, e.startTime.day);
+      return eventDate.isAtSameMomentAs(tomorrow);
+    }).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    // 本週剩餘行程（不含今天和明天）
+    final weekEnd = now.add(Duration(days: 7 - now.weekday));
+    final thisWeekEvents = events.where((e) {
+      final eventDate =
+          DateTime(e.startTime.year, e.startTime.month, e.startTime.day);
+      final todayDate = DateTime(now.year, now.month, now.day);
+      final tomorrowDate = DateTime(now.year, now.month, now.day + 1);
+      return eventDate.isAfter(tomorrowDate) &&
+          eventDate.isBefore(weekEnd.add(const Duration(days: 1)));
+    }).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    // 計算總通知數
+    final totalNotifications = upcomingEvents.length +
+        ongoingEvents.length +
+        todayEvents.length +
+        tomorrowEvents.length +
+        thisWeekEvents.length;
+
+    if (totalNotifications == 0) {
+      return _buildEmptyState();
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(kPaddingMedium),
+      children: [
+        // 正在進行的行程
+        if (ongoingEvents.isNotEmpty) ...[
+          _buildSectionHeader(
+            icon: Icons.play_circle,
+            title: '正在進行',
+            color: const Color(kSuccessColorValue),
+            count: ongoingEvents.length,
+          ),
+          ...ongoingEvents.map((e) => _buildNotificationCard(
+                event: e,
+                type: NotificationType.ongoing,
+              )),
+          const SizedBox(height: kPaddingMedium),
+        ],
+
+        // 即將開始的行程
+        if (upcomingEvents.isNotEmpty) ...[
+          _buildSectionHeader(
+            icon: Icons.notifications_active,
+            title: '即將開始（15分鐘內）',
+            color: const Color(kWarningColorValue),
+            count: upcomingEvents.length,
+          ),
+          ...upcomingEvents.map((e) => _buildNotificationCard(
+                event: e,
+                type: NotificationType.upcoming,
+              )),
+          const SizedBox(height: kPaddingMedium),
+        ],
+
+        // 今日剩餘行程
+        if (todayEvents.isNotEmpty) ...[
+          _buildSectionHeader(
+            icon: Icons.today,
+            title: '今日待辦',
+            color: const Color(kPrimaryColorValue),
+            count: todayEvents.length,
+          ),
+          ...todayEvents.map((e) => _buildNotificationCard(
+                event: e,
+                type: NotificationType.today,
+              )),
+          const SizedBox(height: kPaddingMedium),
+        ],
+
+        // 明天的行程
+        if (tomorrowEvents.isNotEmpty) ...[
+          _buildSectionHeader(
+            icon: Icons.event,
+            title: '明天',
+            color: Colors.blue,
+            count: tomorrowEvents.length,
+          ),
+          ...tomorrowEvents.map((e) => _buildNotificationCard(
+                event: e,
+                type: NotificationType.tomorrow,
+              )),
+          const SizedBox(height: kPaddingMedium),
+        ],
+
+        // 本週剩餘行程
+        if (thisWeekEvents.isNotEmpty) ...[
+          _buildSectionHeader(
+            icon: Icons.date_range,
+            title: '本週',
+            color: Colors.purple,
+            count: thisWeekEvents.length,
+          ),
+          ...thisWeekEvents.map((e) => _buildNotificationCard(
+                event: e,
+                type: NotificationType.thisWeek,
+              )),
+        ],
+      ],
     );
   }
 
@@ -397,12 +427,16 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
 
   /// 導航到行程詳情
   void _navigateToEventDetail(CalendarEvent event) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => EventDetailScreen(
-          event: event,
-          defaultDate: event.startTime,
-        ),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // 允許佔滿螢幕
+      backgroundColor: Colors.transparent,
+      isDismissible: true, // 檢視模式可點擊外部關閉
+      enableDrag: true, // 檢視模式可下滑關閉
+      builder: (context) => EventDetailScreen(
+        event: event,
+        defaultDate: event.startTime,
+        isViewMode: true, // 從通知點擊進入檢視模式
       ),
     );
   }

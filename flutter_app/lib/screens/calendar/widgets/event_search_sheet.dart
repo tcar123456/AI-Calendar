@@ -96,12 +96,17 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
   void _navigateToEventDetail(CalendarEvent event) {
     // 關閉搜尋面板
     Navigator.pop(context);
-    
-    // 導航到行程詳情
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EventDetailScreen(event: event),
+
+    // 導航到行程詳情（使用 BottomSheet 方式）
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // 允許佔滿螢幕
+      backgroundColor: Colors.transparent,
+      isDismissible: true, // 檢視模式可點擊外部關閉
+      enableDrag: true, // 檢視模式可下滑關閉
+      builder: (context) => EventDetailScreen(
+        event: event,
+        isViewMode: true, // 從搜尋結果點擊進入檢視模式
       ),
     );
   }
@@ -121,8 +126,10 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
         // 確保透明區域也能響應點擊
         behavior: HitTestBehavior.opaque,
         child: Container(
-          // 設定高度為螢幕的 85%
-          height: MediaQuery.of(context).size.height * 0.85,
+          // 計算高度：螢幕高度減去狀態列和 AppBar 高度，確保底部面板在狀態列下方
+          height: MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  kToolbarHeight,
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
           ),

@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../models/event_model.dart';
-import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/calendar_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../utils/constants.dart';
 import '../memo/memo_screen.dart';
 import '../notification/notification_screen.dart';
-import '../voice/voice_input_screen.dart';
+import '../voice/voice_input_sheet.dart';
 import 'event_detail_screen.dart';
 
 // 引入拆分後的元件
@@ -62,6 +61,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   /// PageView 的 Key（用於在格式切換時強制重建）
   /// 每次切換格式時會更新這個值，強制 PageView 完全重建
   int _pageViewKey = 0;
+
+  /// 底部導覽列當前選中的索引
+  /// 0: 行事曆, 1: 通知, 2: 語音輸入, 3: 備忘錄, 4: 我的帳號
+  int _selectedNavIndex = 0;
   
   /// 取得用戶設定的週起始日
   /// 
@@ -212,6 +215,55 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     return DateTime(date.year, date.month, date.day - daysToSubtract);
   }
 
+  /// 根據當前選中的導覽項目建立對應的 AppBar
+  PreferredSizeWidget _buildAppBar(BuildContext context, dynamic selectedCalendar) {
+    // 根據當前頁面顯示不同的 AppBar
+    switch (_selectedNavIndex) {
+      case 1: // 通知頁面
+        return AppBar(
+          title: const Text('通知'),
+          centerTitle: false,
+        );
+      case 3: // 備忘錄頁面
+        return AppBar(
+          title: const Text('備忘錄'),
+          centerTitle: false,
+        );
+      default: // 行事曆頁面
+        return AppBar(
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selectedCalendar != null)
+                Container(
+                  width: 12,
+                  height: 12,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: selectedCalendar.color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              Text(selectedCalendar?.name ?? '我的行事曆'),
+            ],
+          ),
+          centerTitle: false,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: '新增行程',
+              onPressed: () => _navigateToEventDetail(context, null),
+            ),
+            IconButton(
+              icon: const Icon(Icons.space_dashboard),
+              tooltip: '行事曆設定',
+              onPressed: () => CalendarSettingsSheet.show(context),
+            ),
+          ],
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // 取得所有行程
@@ -221,53 +273,29 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        // 顯示當前行事曆名稱，若無則顯示預設名稱
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 行事曆顏色指示器
-            if (selectedCalendar != null)
-              Container(
-                width: 12,
-                height: 12,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: selectedCalendar.color,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            Text(selectedCalendar?.name ?? '我的行事曆'),
-          ],
-        ),
-        centerTitle: false,
-        actions: [
-          // 新增按鈕
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: '新增行程',
-            onPressed: () => _navigateToEventDetail(context, null),
-          ),
-          // 行事曆設定按鈕
-          IconButton(
-            icon: const Icon(Icons.space_dashboard),
-            tooltip: '行事曆設定',
-            onPressed: () => CalendarSettingsSheet.show(context),
-          ),
-        ],
-      ),
-      
-      body: Column(
+      appBar: _buildAppBar(context, selectedCalendar),
+
+      body: IndexedStack(
+        index: _selectedNavIndex == 3 ? 2 : (_selectedNavIndex == 1 ? 1 : 0),
         children: [
-          Expanded(
-            child: _buildCalendar(eventsAsync),
+          // 索引 0: 行事曆頁面
+          Column(
+            children: [
+              Expanded(
+                child: _buildCalendar(eventsAsync),
+              ),
+            ],
           ),
+          // 索引 1: 通知頁面
+          const NotificationScreen(embedded: true),
+          // 索引 2: 備忘錄頁面
+          const MemoScreen(embedded: true),
         ],
       ),
-      
+
       // 底部導航欄
       bottomNavigationBar: AppBottomNav(
-        currentIndex: 0,
+        currentIndex: _selectedNavIndex,
         onItemTap: (index) => _handleBottomNavTap(context, index),
       ),
     );
@@ -585,22 +613,28 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   void _handleBottomNavTap(BuildContext context, int index) {
     switch (index) {
       case 0: // 行事曆
-        _jumpToToday();
+        if (_selectedNavIndex == 0) {
+          // 如果已經在行事曆頁面，點擊則跳到今天
+          _jumpToToday();
+        } else {
+          // 切換到行事曆頁面
+          setState(() {
+            _selectedNavIndex = 0;
+          });
+        }
         break;
-      case 1: // 通知
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const NotificationScreen()),
-        );
+      case 1: // 通知（切換頁面，不導航）
+        setState(() {
+          _selectedNavIndex = 1;
+        });
         break;
-      case 2: // 語音輸入
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const VoiceInputScreen()),
-        );
+      case 2: // 語音輸入（顯示底部面板）
+        _showVoiceInputSheet(context);
         break;
-      case 3: // 備忘錄
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const MemoScreen()),
-        );
+      case 3: // 備忘錄（切換頁面，不導航）
+        setState(() {
+          _selectedNavIndex = 3;
+        });
         break;
       case 4: // 我的帳號
         _showUserMenu(context);
@@ -608,16 +642,35 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     }
   }
 
+  /// 顯示語音輸入底部面板
+  void _showVoiceInputSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => const VoiceInputSheet(),
+    );
+  }
+
   /// 導航到行程詳情畫面
-  /// 
-  /// 返回 Future，讓呼叫者可以等待導航完成
+  ///
+  /// 使用 BottomSheet 方式，支援下滑關閉
+  /// PopScope 會處理有未儲存變更時的情況
   Future<void> _navigateToEventDetail(BuildContext context, CalendarEvent? event) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => EventDetailScreen(
-          event: event,
-          defaultDate: _selectedDay,
-        ),
+    final isViewMode = event != null; // 點擊現有行程進入檢視模式，新增行程進入編輯模式
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // 允許佔滿螢幕
+      backgroundColor: Colors.transparent,
+      isDismissible: true, // 允許點擊外部關閉（PopScope 會攔截有變更的情況）
+      enableDrag: true, // 允許下滑關閉（PopScope 會攔截有變更的情況）
+      builder: (context) => EventDetailScreen(
+        event: event,
+        defaultDate: _selectedDay,
+        isViewMode: isViewMode,
       ),
     );
   }

@@ -59,7 +59,7 @@ class CalendarSettingsSheet extends ConsumerWidget {
             child: Row(
               children: const [
                 Icon(
-                  Icons.settings,
+                  Icons.space_dashboard,
                   color: Color(kPrimaryColorValue),
                 ),
                 SizedBox(width: 12),
