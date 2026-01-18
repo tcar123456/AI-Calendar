@@ -10,7 +10,7 @@ from loguru import logger
 import os
 from dotenv import load_dotenv
 
-from app.routes import voice
+from app.routes import voice, holiday
 
 # 載入環境變數
 load_dotenv()
@@ -33,6 +33,7 @@ app.add_middleware(
 
 # 註冊路由
 app.include_router(voice.router, prefix="/api/voice", tags=["語音處理"])
+app.include_router(holiday.router, prefix="/api/holidays", tags=["節日資料"])
 
 # 健康檢查端點
 @app.get("/")

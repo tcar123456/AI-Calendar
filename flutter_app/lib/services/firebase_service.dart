@@ -490,24 +490,31 @@ class FirebaseService {
   }
 
   /// 刪除行事曆
-  /// 
+  ///
   /// 注意：刪除行事曆時，該行事曆下的所有行程也會一併刪除
   Future<void> deleteCalendar(String calendarId) async {
-    // 先刪除該行事曆下的所有行程
+    final userId = currentUserId;
+    if (userId == null) {
+      throw Exception('用戶未登入');
+    }
+
+    // 先刪除該行事曆下當前用戶的所有行程
+    // 必須加入 userId 過濾，否則 Firestore 安全規則會拒絕查詢
     final eventsSnapshot = await _firestore
         .collection(kEventsCollection)
+        .where('userId', isEqualTo: userId)
         .where('calendarId', isEqualTo: calendarId)
         .get();
-    
+
     // 使用批次刪除以提高效能
     final batch = _firestore.batch();
     for (final doc in eventsSnapshot.docs) {
       batch.delete(doc.reference);
     }
-    
+
     // 刪除行事曆本身
     batch.delete(_firestore.collection(kCalendarsCollection).doc(calendarId));
-    
+
     await batch.commit();
   }
 

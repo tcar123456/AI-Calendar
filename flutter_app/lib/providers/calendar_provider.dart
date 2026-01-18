@@ -290,9 +290,77 @@ class CalendarController extends StateNotifier<CalendarControllerState> {
     }
   }
 
+  /// 切換標籤顯示狀態
+  ///
+  /// [calendarId] 行事曆 ID
+  /// [labelId] 標籤 ID (label_1 ~ label_12)
+  /// [isVisible] true = 顯示, false = 隱藏
+  Future<bool> toggleLabelVisibility(
+    String calendarId,
+    String labelId,
+    bool isVisible,
+  ) async {
+    try {
+      final calendar = await _firebaseService.getCalendar(calendarId);
+      if (calendar == null) return false;
+
+      final newHiddenLabelIds = List<String>.from(calendar.settings.hiddenLabelIds);
+
+      if (isVisible) {
+        // 顯示標籤：從隱藏列表中移除
+        newHiddenLabelIds.remove(labelId);
+      } else {
+        // 隱藏標籤：加入隱藏列表
+        if (!newHiddenLabelIds.contains(labelId)) {
+          newHiddenLabelIds.add(labelId);
+        }
+      }
+
+      final newSettings = calendar.settings.copyWith(hiddenLabelIds: newHiddenLabelIds);
+      return updateCalendarSettings(calendarId, newSettings);
+    } catch (e) {
+      state = state.copyWith(
+        errorMessage: '更新標籤顯示狀態失敗：$e',
+      );
+      return false;
+    }
+  }
+
+  /// 設定所有標籤的顯示狀態
+  ///
+  /// [calendarId] 行事曆 ID
+  /// [showAll] true = 顯示全部, false = 隱藏全部
+  Future<bool> setAllLabelsVisibility(
+    String calendarId,
+    bool showAll,
+  ) async {
+    try {
+      final calendar = await _firebaseService.getCalendar(calendarId);
+      if (calendar == null) return false;
+
+      List<String> newHiddenLabelIds;
+      if (showAll) {
+        // 顯示全部：清空隱藏列表
+        newHiddenLabelIds = [];
+      } else {
+        // 隱藏全部：加入所有標籤 ID
+        newHiddenLabelIds = DefaultEventLabels.labels.map((l) => l.id).toList();
+      }
+
+      final newSettings = calendar.settings.copyWith(hiddenLabelIds: newHiddenLabelIds);
+      return updateCalendarSettings(calendarId, newSettings);
+    } catch (e) {
+      state = state.copyWith(
+        errorMessage: '更新標籤顯示狀態失敗：$e',
+      );
+      return false;
+    }
+  }
+
   /// 刪除行事曆
-  /// 
+  ///
   /// 刪除行事曆會一併刪除其中所有行程
+  /// 刪除後會自動切換到列表中最上面的行事曆
   Future<bool> deleteCalendar(String calendarId) async {
     state = state.copyWith(isLoading: true, clearMessages: true);
 
@@ -307,19 +375,36 @@ class CalendarController extends StateNotifier<CalendarControllerState> {
         return false;
       }
 
+      // 刪除前先取得當前的行事曆列表，以便刪除後選擇第一個
+      final calendarsAsync = _ref.read(calendarsProvider);
+      final currentCalendars = calendarsAsync.valueOrNull ?? [];
+
       await _firebaseService.deleteCalendar(calendarId);
-      
-      // 如果刪除的是當前選擇的行事曆，重設選擇
+
+      // 如果刪除的是當前選擇的行事曆，切換到列表中最上面的行事曆
       final selectedId = _ref.read(selectedCalendarIdProvider);
       if (selectedId == calendarId) {
-        await _ref.read(selectedCalendarIdProvider.notifier).clear();
+        // 過濾掉剛刪除的行事曆，取得剩餘的行事曆
+        final remainingCalendars = currentCalendars
+            .where((c) => c.id != calendarId)
+            .toList();
+
+        if (remainingCalendars.isNotEmpty) {
+          // 選擇列表中的第一個行事曆
+          await _ref
+              .read(selectedCalendarIdProvider.notifier)
+              .setCalendarId(remainingCalendars.first.id);
+        } else {
+          // 沒有剩餘行事曆時，清除選擇
+          await _ref.read(selectedCalendarIdProvider.notifier).clear();
+        }
       }
-      
+
       state = state.copyWith(
         isLoading: false,
         successMessage: '行事曆刪除成功',
       );
-      
+
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -412,5 +497,14 @@ final selectedCalendarSettingsProvider = Provider<CalendarSettings>((ref) {
 final calendarLabelsProvider = Provider<List<EventLabel>>((ref) {
   final settings = ref.watch(selectedCalendarSettingsProvider);
   return settings.getLabels();
+});
+
+/// 當前行事曆的隱藏標籤 ID 列表 Provider
+///
+/// 用於篩選行程顯示
+/// 如果沒有選擇的行事曆，回傳空列表（顯示所有標籤）
+final hiddenLabelIdsProvider = Provider<List<String>>((ref) {
+  final settings = ref.watch(selectedCalendarSettingsProvider);
+  return settings.hiddenLabelIds;
 });
 

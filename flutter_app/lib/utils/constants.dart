@@ -9,6 +9,9 @@ const String kZeaburApiBaseUrl = 'https://aicalendar-api.zeabur.app';
 /// 語音解析 API 端點
 const String kVoiceParseEndpoint = '/api/voice/parse';
 
+/// 節日資料 API 端點
+const String kHolidaysEndpoint = '/api/holidays';
+
 // ==================== Firebase Collection 名稱 ====================
 
 /// 用戶資料集合

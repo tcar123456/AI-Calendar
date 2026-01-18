@@ -19,45 +19,55 @@ final allEventsProvider = StreamProvider<List<CalendarEvent>>((ref) {
 });
 
 /// 行程列表 Provider
-/// 
+///
 /// 監聽當前選擇行事曆的行程
 /// 會根據 selectedCalendarProvider 過濾行程
-/// 
+///
 /// 過濾邏輯：
 /// - 選中行事曆 A → 只顯示 calendarId == A 的行程
 /// - 選中行事曆 B → 只顯示 calendarId == B 的行程
 /// - 舊行程（無 calendarId）→ 顯示在第一個行事曆中
+/// - 隱藏標籤過濾：根據 hiddenLabelIds 過濾掉對應標籤的行程
 final eventsProvider = Provider<AsyncValue<List<CalendarEvent>>>((ref) {
   final allEvents = ref.watch(allEventsProvider);
   final selectedCalendar = ref.watch(selectedCalendarProvider);
   final calendars = ref.watch(calendarsProvider);
-  
+  final hiddenLabelIds = ref.watch(hiddenLabelIdsProvider);
+
   return allEvents.when(
     data: (events) {
       // 如果沒有選擇的行事曆，返回空列表
       if (selectedCalendar == null) {
         return const AsyncValue.data([]);
       }
-      
+
       // 取得第一個行事曆的 ID（用於處理舊行程）
       final firstCalendarId = calendars.when(
         data: (list) => list.isNotEmpty ? list.first.id : null,
         loading: () => null,
         error: (_, __) => null,
       );
-      
+
       // 過濾出屬於當前選擇行事曆的行程
-      final filteredEvents = events.where((event) {
+      final filteredByCalendar = events.where((event) {
         // 情況 1：行程有 calendarId，必須完全匹配
         if (event.calendarId != null) {
           return event.calendarId == selectedCalendar.id;
         }
-        
+
         // 情況 2：舊行程（無 calendarId），顯示在第一個行事曆中
         return selectedCalendar.id == firstCalendarId;
       }).toList();
-      
-      return AsyncValue.data(filteredEvents);
+
+      // 標籤過濾：根據 hiddenLabelIds 過濾掉對應標籤的行程
+      final filteredByLabel = filteredByCalendar.where((event) {
+        // 無標籤行程永遠顯示
+        if (event.labelId == null) return true;
+        // 檢查標籤是否在隱藏列表中
+        return !hiddenLabelIds.contains(event.labelId);
+      }).toList();
+
+      return AsyncValue.data(filteredByLabel);
     },
     loading: () => const AsyncValue.loading(),
     error: (error, stack) => AsyncValue.error(error, stack),

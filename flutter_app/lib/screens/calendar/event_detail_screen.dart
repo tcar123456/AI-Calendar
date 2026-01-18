@@ -72,6 +72,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   /// 是否為編輯模式
   bool get isEditMode => widget.event != null;
 
+  /// 動畫方向：true = 向左滑入（進入編輯模式），false = 向右滑入（返回檢視模式）
+  bool _isTransitioningToEdit = true;
+
   /// 是否有未儲存的變更
   bool _hasUnsavedChanges = false;
 
@@ -86,6 +89,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   late bool _originalIsAllDay;
   late Set<int> _originalReminders;
   late String? _originalLabelId;
+
+  /// 滾動控制器（用於追蹤 ListView 滾動位置）
+  final ScrollController _scrollController = ScrollController();
+
+  /// 累積的 overscroll 距離（用於判斷是否應該關閉面板）
+  double _overscrollAccumulator = 0;
 
   @override
   void initState() {
@@ -183,6 +192,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     _titleController.dispose();
     _locationController.dispose();
     _descriptionController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -218,11 +228,75 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                 // 頂部拖動指示器和按鈕區域
                 _buildHeader(eventState),
 
-                // 內容區域
+                // 內容區域（支援整個面板下滑關閉）
                 Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: kPaddingMedium),
-                    children: [
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      // 根據動畫方向決定滑動方向
+                      // _isTransitioningToEdit = true: 進入編輯模式，從右向左滑入
+                      // _isTransitioningToEdit = false: 返回檢視模式，從左向右滑入
+                      final isEntering = child.key == ValueKey(_isCurrentlyViewMode);
+
+                      Offset beginOffset;
+                      if (isEntering) {
+                        // 進入的 widget
+                        beginOffset = _isTransitioningToEdit
+                            ? const Offset(1.0, 0.0)  // 從右邊滑入
+                            : const Offset(-1.0, 0.0); // 從左邊滑入
+                      } else {
+                        // 離開的 widget
+                        beginOffset = _isTransitioningToEdit
+                            ? const Offset(-1.0, 0.0) // 向左滑出
+                            : const Offset(1.0, 0.0);  // 向右滑出
+                      }
+
+                      return SlideTransition(
+                        position: Tween<Offset>(
+                          begin: beginOffset,
+                          end: Offset.zero,
+                        ).animate(CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeInOut,
+                        )),
+                        child: child,
+                      );
+                    },
+                    layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
+                      return Stack(
+                        children: <Widget>[
+                          ...previousChildren,
+                          if (currentChild != null) currentChild,
+                        ],
+                      );
+                    },
+                    child: NotificationListener<ScrollNotification>(
+                      key: ValueKey(_isCurrentlyViewMode),
+                      onNotification: (notification) {
+                        // 處理 overscroll 事件：當在頂部繼續向下拖動時關閉面板
+                        if (notification is OverscrollNotification) {
+                          // 只處理向下的 overscroll（負值表示向下拉）
+                          if (notification.overscroll < 0) {
+                            _overscrollAccumulator += notification.overscroll.abs();
+                            // 當累積的 overscroll 超過閾值時，關閉面板
+                            if (_overscrollAccumulator > 150) {
+                              _overscrollAccumulator = 0;
+                              _handleBackNavigation();
+                            }
+                          }
+                        } else if (notification is ScrollUpdateNotification) {
+                          // 重置累積器（用戶開始正常滾動時）
+                          if (notification.scrollDelta != null && notification.scrollDelta! > 0) {
+                            _overscrollAccumulator = 0;
+                          }
+                        }
+                        return false; // 不攔截通知，讓其繼續傳遞
+                      },
+                      child: ListView(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: kPaddingMedium),
+                        children: [
                       // 標題
                       if (_isCurrentlyViewMode)
                         _buildViewField(
@@ -254,15 +328,20 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                           icon: _isAllDay ? Icons.event_available : Icons.access_time,
                         )
                       else
-                        SwitchListTile(
+                        ListTile(
                           title: const Text('全天行程'),
-                          value: _isAllDay,
-                          onChanged: (value) {
-                            setState(() {
-                              _isAllDay = value;
-                            });
-                            _checkForChanges();
-                          },
+                          trailing: Transform.scale(
+                            scale: 0.7,
+                            child: Switch(
+                              value: _isAllDay,
+                              onChanged: (value) {
+                                setState(() {
+                                  _isAllDay = value;
+                                });
+                                _checkForChanges();
+                              },
+                            ),
+                          ),
                           contentPadding: EdgeInsets.zero,
                         ),
 
@@ -332,7 +411,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                       _buildDescriptionField(),
 
                       const SizedBox(height: 32),
-                    ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -492,16 +573,21 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 地點開關
-        SwitchListTile(
+        ListTile(
+          leading: const Icon(Icons.location_on),
           title: const Text('地點'),
-          value: _showLocation,
-          onChanged: (value) {
-            setState(() {
-              _showLocation = value;
-            });
-          },
+          trailing: Transform.scale(
+            scale: 0.7,
+            child: Switch(
+              value: _showLocation,
+              onChanged: (value) {
+                setState(() {
+                  _showLocation = value;
+                });
+              },
+            ),
+          ),
           contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.location_on),
         ),
 
         // 地點輸入框（展開時顯示）
@@ -544,16 +630,21 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 備註開關
-        SwitchListTile(
+        ListTile(
+          leading: const Icon(Icons.notes),
           title: const Text('備註'),
-          value: _showDescription,
-          onChanged: (value) {
-            setState(() {
-              _showDescription = value;
-            });
-          },
+          trailing: Transform.scale(
+            scale: 0.7,
+            child: Switch(
+              value: _showDescription,
+              onChanged: (value) {
+                setState(() {
+                  _showDescription = value;
+                });
+              },
+            ),
+          ),
           contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.notes),
         ),
 
         // 備註輸入框（展開時顯示）
@@ -601,22 +692,27 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 重複開關
-        SwitchListTile(
+        ListTile(
+          leading: const Icon(Icons.repeat),
           title: const Text('重複'),
-          value: _isRepeat,
-          onChanged: (value) {
-            setState(() {
-              _isRepeat = value;
-              if (!value) {
-                _repeatType = null;
-              } else if (_repeatType == null) {
-                _repeatType = 'daily'; // 預設每日
-              }
-            });
-            _checkForChanges();
-          },
+          trailing: Transform.scale(
+            scale: 0.7,
+            child: Switch(
+              value: _isRepeat,
+              onChanged: (value) {
+                setState(() {
+                  _isRepeat = value;
+                  if (!value) {
+                    _repeatType = null;
+                  } else if (_repeatType == null) {
+                    _repeatType = 'daily'; // 預設每日
+                  }
+                });
+                _checkForChanges();
+              },
+            ),
+          ),
           contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.repeat),
         ),
 
         // 重複選項（展開時顯示）
@@ -685,7 +781,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 處理返回導航
   Future<void> _handleBackNavigation() async {
-    // 如果在編輯模式且原本是從檢視模式進來的，返回檢視模式
+    // 如果在編輯模式且原本是從檢視模式進來的，返回檢視模式（向右推入動畫）
     if (!_isCurrentlyViewMode && isEditMode && widget.isViewMode) {
       // 如果有未儲存的變更，詢問是否捨棄
       if (_hasUnsavedChanges) {
@@ -697,6 +793,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       }
 
       setState(() {
+        _isTransitioningToEdit = false; // 設定動畫方向：向右滑入（返回檢視模式）
         _isCurrentlyViewMode = true;
         _hasUnsavedChanges = false;
       });
@@ -1271,11 +1368,23 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     }
 
     if (success && mounted) {
-      // 儲存成功，重置變更標記
-      setState(() {
-        _hasUnsavedChanges = false;
-      });
-      Navigator.of(context).pop();
+      // 儲存成功
+      // 如果是從檢視模式進入編輯模式的，用向右推入動畫回到檢視模式
+      if (isEditMode && widget.isViewMode) {
+        // 更新原始資料（反映最新儲存的值）
+        _saveOriginalData();
+        setState(() {
+          _isTransitioningToEdit = false; // 設定動畫方向：向右滑入（返回檢視模式）
+          _isCurrentlyViewMode = true;
+          _hasUnsavedChanges = false;
+        });
+      } else {
+        // 新增模式或直接進入編輯模式：關閉整個面板
+        setState(() {
+          _hasUnsavedChanges = false;
+        });
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -1309,9 +1418,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     }
   }
 
-  /// 切換到編輯模式
+  /// 切換到編輯模式（向左推入動畫）
   void _switchToEditMode() {
     setState(() {
+      _isTransitioningToEdit = true; // 設定動畫方向：向左滑入
       _isCurrentlyViewMode = false;
     });
   }

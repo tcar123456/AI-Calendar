@@ -618,12 +618,14 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
                   : () async {
                       final name = nameController.text.trim();
                       if (name.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        final messenger = ScaffoldMessenger.of(context);
+                        messenger.clearSnackBars();
+                        messenger.showSnackBar(
                           const SnackBar(content: Text('請輸入行事曆名稱')),
                         );
                         return;
                       }
-                      
+
                       // 設定載入狀態
                       setDialogState(() {
                         isCreating = true;
@@ -644,14 +646,16 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
                       
                       // 顯示結果
                       if (mounted) {
+                        final messenger = ScaffoldMessenger.of(context);
+                        messenger.clearSnackBars();
                         if (calendarId != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             const SnackBar(content: Text('行事曆建立成功')),
                           );
                         } else {
                           // 顯示錯誤訊息
                           final errorMessage = ref.read(calendarControllerProvider).errorMessage;
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             SnackBar(content: Text(errorMessage ?? '建立失敗，請重試')),
                           );
                         }
@@ -766,16 +770,18 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
                   : () async {
                       final name = nameController.text.trim();
                       if (name.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        final messenger = ScaffoldMessenger.of(context);
+                        messenger.clearSnackBars();
+                        messenger.showSnackBar(
                           const SnackBar(content: Text('請輸入行事曆名稱')),
                         );
                         return;
                       }
-                      
+
                       setDialogState(() {
                         isUpdating = true;
                       });
-                      
+
                       final success = await ref
                           .read(calendarControllerProvider.notifier)
                           .updateCalendar(
@@ -783,19 +789,21 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
                             name: name,
                             color: selectedColor,
                           );
-                      
+
                       if (dialogContext.mounted) {
                         Navigator.pop(dialogContext);
                       }
-                      
+
                       if (mounted) {
+                        final messenger = ScaffoldMessenger.of(context);
+                        messenger.clearSnackBars();
                         if (success) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             const SnackBar(content: Text('行事曆更新成功')),
                           );
                         } else {
                           final errorMessage = ref.read(calendarControllerProvider).errorMessage;
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             SnackBar(content: Text(errorMessage ?? '更新失敗，請重試')),
                           );
                         }
@@ -858,7 +866,9 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
                   .deleteCalendar(calendar.id);
               
               if (success && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.clearSnackBars();
+                messenger.showSnackBar(
                   const SnackBar(content: Text('行事曆已刪除')),
                 );
               }
@@ -986,7 +996,39 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
               subtitle: Text('載入失敗'),
             ),
           ),
-          
+
+          // 語言設定（從用戶設定讀取當前值）
+          userDataAsync.when(
+            data: (user) {
+              final language = user?.settings.getLanguageDisplayName() ?? '繁體中文（台灣）';
+              return ListTile(
+                leading: const Icon(Icons.language),
+                title: const Text('語言'),
+                subtitle: Text(language),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showLanguagePicker(user),
+              );
+            },
+            loading: () => const ListTile(
+              leading: Icon(Icons.language),
+              title: Text('語言'),
+              subtitle: Text('載入中...'),
+            ),
+            error: (_, __) => const ListTile(
+              leading: Icon(Icons.language),
+              title: Text('語言'),
+              subtitle: Text('載入失敗'),
+            ),
+          ),
+
+          // 支援選項
+          ListTile(
+            leading: const Icon(Icons.support_agent),
+            title: const Text('支援'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _showSupportSheet(),
+          ),
+
           const SizedBox(height: 16),
         ],
       ),
@@ -1075,10 +1117,13 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
               leading: const Icon(Icons.notifications_active),
               title: const Text('APP 通知'),
               subtitle: Text(notificationsEnabled ? '已開啟' : '已關閉'),
-              trailing: Switch(
-                value: notificationsEnabled,
-                activeColor: const Color(kPrimaryColorValue),
-                onChanged: (value) => _updateNotificationEnabled(value, user),
+              trailing: Transform.scale(
+                scale: 0.7,
+                child: Switch(
+                  value: notificationsEnabled,
+                  activeColor: const Color(kPrimaryColorValue),
+                  onChanged: (value) => _updateNotificationEnabled(value, user),
+                ),
               ),
             ),
             
@@ -1111,6 +1156,148 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
     );
   }
 
+  /// 顯示支援面板
+  void _showSupportSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(20),
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 標題列
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: kPaddingMedium,
+                  vertical: kPaddingSmall,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 空白區域（保持對稱）
+                    const SizedBox(width: 48),
+
+                    // 標題
+                    const Text(
+                      '支援',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+
+                    // 關閉按鈕
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 1),
+
+              // 公告
+              ListTile(
+                leading: const Icon(Icons.campaign_outlined),
+                title: const Text('公告'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  // TODO: 導航至公告頁面
+                  final messenger = ScaffoldMessenger.of(context);
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('公告功能開發中'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+
+              // 關於
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('關於'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  // TODO: 導航至關於頁面
+                  final messenger = ScaffoldMessenger.of(context);
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('關於功能開發中'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+
+              // 條款
+              ListTile(
+                leading: const Icon(Icons.description_outlined),
+                title: const Text('條款'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  // TODO: 導航至條款頁面
+                  final messenger = ScaffoldMessenger.of(context);
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('條款功能開發中'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+
+              // 隱私權政策
+              ListTile(
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: const Text('隱私權政策'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  // TODO: 導航至隱私權政策頁面
+                  final messenger = ScaffoldMessenger.of(context);
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('隱私權政策功能開發中'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // 版本號
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  '版本 1.0.0',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// 更新通知開關狀態
   Future<void> _updateNotificationEnabled(bool value, UserModel? user) async {
     if (user == null) return;
@@ -1124,7 +1311,9 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
       
       // 顯示提示訊息
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(
             content: Text(value ? '已開啟 APP 通知' : '已關閉 APP 通知'),
             duration: const Duration(seconds: 2),
@@ -1133,7 +1322,9 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(content: Text('更新設定失敗：$e')),
         );
       }
@@ -1309,7 +1500,9 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
       // 顯示提示訊息
       if (mounted) {
         final timeStr = '${selectedHour.toString().padLeft(2, '0')}:${selectedMinute.toString().padLeft(2, '0')}';
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(
             content: Text('通知時間已設定為 $timeStr'),
             duration: const Duration(seconds: 2),
@@ -1318,13 +1511,15 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(content: Text('更新設定失敗：$e')),
         );
       }
     }
   }
-  
+
   /// 顯示週起始日選擇器（底部面板樣式，單選）
   Future<void> _showWeekStartDayPicker(UserModel? user) async {
     if (user == null) return;
@@ -1440,7 +1635,9 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
       
       // 顯示提示訊息
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(
             content: Text('週起始日已設定為 $selectedName'),
             duration: const Duration(seconds: 2),
@@ -1449,13 +1646,15 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(content: Text('更新設定失敗：$e')),
         );
       }
     }
   }
-  
+
   /// 顯示時區選擇器
   Future<void> _showTimezonePicker(UserModel? user) async {
     if (user == null) return;
@@ -1581,7 +1780,9 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
       
       // 顯示提示訊息
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(
             content: Text('時區已設定為 $selectedName'),
             duration: const Duration(seconds: 2),
@@ -1590,7 +1791,187 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(content: Text('更新設定失敗：$e')),
+        );
+      }
+    }
+  }
+
+  /// 顯示語言選擇器
+  Future<void> _showLanguagePicker(UserModel? user) async {
+    if (user == null) return;
+
+    // 語言選項列表
+    // 除繁體中文（台灣）外，其他語言待開發
+    final languages = [
+      {'value': 'zh-TW', 'name': '繁體中文（台灣）', 'available': true},
+      {'value': 'en', 'name': 'English', 'available': true},
+      {'value': 'ja', 'name': '日本語', 'available': true},
+      {'value': 'ko', 'name': '한국어', 'available': true},
+      {'value': 'zh-CN', 'name': '简体中文', 'available': true},
+    ];
+
+    // 取得當前設定的語言
+    final currentValue = user.settings.language;
+
+    // 顯示選擇對話框
+    final selectedValue = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(20),
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 標題列
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: kPaddingMedium,
+                  vertical: kPaddingSmall,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 空白區域（保持對稱）
+                    const SizedBox(width: 48),
+
+                    // 標題
+                    const Text(
+                      '選擇語言',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+
+                    // 關閉按鈕
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 1),
+
+              // 選項列表
+              ...languages.map((lang) {
+                final value = lang['value'] as String;
+                final name = lang['name'] as String;
+                final available = lang['available'] as bool;
+                final isSelected = value == currentValue;
+
+                return ListTile(
+                  leading: Icon(
+                    isSelected ? Icons.check_circle : Icons.circle_outlined,
+                    color: isSelected
+                        ? const Color(kPrimaryColorValue)
+                        : Colors.grey[400],
+                  ),
+                  title: Row(
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: available
+                              ? (isSelected
+                                  ? const Color(kPrimaryColorValue)
+                                  : Colors.black87)
+                              : Colors.grey[500],
+                        ),
+                      ),
+                      if (!available) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '待開發',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  selected: isSelected,
+                  selectedTileColor: const Color(kPrimaryColorValue).withOpacity(0.1),
+                  onTap: available
+                      ? () => Navigator.of(sheetContext).pop(value)
+                      : () {
+                          // 顯示待開發提示
+                          final messenger = ScaffoldMessenger.of(context);
+                          messenger.clearSnackBars();
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('$name 功能開發中，敬請期待！'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                );
+              }),
+
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // 若選擇相同值或取消，則不更新
+    if (selectedValue == null || selectedValue == currentValue) return;
+
+    try {
+      // 更新 Firestore 中的設定
+      final firebaseService = ref.read(firebaseServiceProvider);
+      await firebaseService.updateUserData(user.id, {
+        'settings.language': selectedValue,
+      });
+
+      // 取得選擇的語言名稱
+      final selectedLang = languages.firstWhere(
+        (lang) => lang['value'] == selectedValue,
+      );
+      final selectedName = selectedLang['name'] as String;
+
+      // 顯示提示訊息
+      if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('語言已設定為 $selectedName'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(content: Text('更新設定失敗：$e')),
         );
       }

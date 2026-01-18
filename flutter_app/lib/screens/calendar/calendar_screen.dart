@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../models/event_model.dart';
+import '../../models/holiday_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/calendar_provider.dart';
 import '../../providers/event_provider.dart';
+import '../../providers/holiday_provider.dart';
 import '../../utils/constants.dart';
 import '../memo/memo_screen.dart';
 import '../notification/notification_screen.dart';
@@ -19,6 +21,7 @@ import 'widgets/multi_day_event_bar.dart';
 import 'widgets/day_events_bottom_sheet.dart';
 import 'widgets/year_month_picker.dart';
 import 'widgets/calendar_settings_sheet.dart';
+import 'widgets/label_filter_sheet.dart';
 import 'widgets/app_bottom_nav.dart';
 import 'widgets/user_menu_sheet.dart';
 
@@ -102,6 +105,29 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     super.initState();
     // 初始化 PageController，設定初始頁面
     _pageController = PageController(initialPage: _initialPage);
+
+    // 預載入當前年份和下一年的節日資料
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _preloadHolidays();
+    });
+  }
+
+  /// 預載入節日資料
+  ///
+  /// 載入當前年份和下一年的節日，並更新 HolidayManager 快取
+  Future<void> _preloadHolidays() async {
+    final currentYear = DateTime.now().year;
+    final holidayService = ref.read(holidayServiceProvider);
+
+    // 預載入當年和下一年
+    for (final year in [currentYear, currentYear + 1]) {
+      try {
+        final holidays = await holidayService.getHolidaysForYear(year);
+        HolidayManager.updateCache(year, holidays);
+      } catch (e) {
+        debugPrint('預載入 $year 年節日失敗: $e');
+      }
+    }
   }
 
   @override
@@ -241,11 +267,19 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           ),
           centerTitle: false,
           actions: [
+            // 篩選標籤按鈕
+            IconButton(
+              icon: const Icon(Icons.filter_list),
+              tooltip: '篩選標籤',
+              onPressed: () => LabelFilterSheet.show(context),
+            ),
+            // 新增行程按鈕
             IconButton(
               icon: const Icon(Icons.add),
               tooltip: '新增行程',
               onPressed: () => _navigateToEventDetail(context, null),
             ),
+            // 行事曆設定按鈕
             IconButton(
               icon: const Icon(Icons.space_dashboard),
               tooltip: '行事曆設定',

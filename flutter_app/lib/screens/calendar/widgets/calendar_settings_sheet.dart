@@ -96,10 +96,13 @@ class CalendarSettingsSheet extends ConsumerWidget {
             leading: const Icon(Icons.event_note),
             title: const Text('顯示農曆'),
             subtitle: Text(showLunar ? '已開啟' : '已關閉'),
-            trailing: Switch(
-              value: showLunar,
-              activeColor: const Color(kPrimaryColorValue),
-              onChanged: (value) => _updateShowLunar(context, ref, value),
+            trailing: Transform.scale(
+              scale: 0.7,
+              child: Switch(
+                value: showLunar,
+                activeColor: const Color(kPrimaryColorValue),
+                onChanged: (value) => _updateShowLunar(context, ref, value),
+              ),
             ),
             onTap: () => _updateShowLunar(context, ref, !showLunar),
           ),
@@ -109,10 +112,13 @@ class CalendarSettingsSheet extends ConsumerWidget {
             leading: const Icon(Icons.celebration),
             title: const Text('顯示節日'),
             subtitle: Text(showHolidays ? '已開啟' : '已關閉'),
-            trailing: Switch(
-              value: showHolidays,
-              activeColor: const Color(kPrimaryColorValue),
-              onChanged: (value) => _updateShowHolidays(context, ref, value),
+            trailing: Transform.scale(
+              scale: 0.7,
+              child: Switch(
+                value: showHolidays,
+                activeColor: const Color(kPrimaryColorValue),
+                onChanged: (value) => _updateShowHolidays(context, ref, value),
+              ),
             ),
             onTap: () => _updateShowHolidays(context, ref, !showHolidays),
           ),
@@ -140,10 +146,7 @@ class CalendarSettingsSheet extends ConsumerWidget {
               '刪除行事曆',
               style: TextStyle(color: Colors.red),
             ),
-            onTap: () {
-              Navigator.pop(context);
-              _showDeleteCalendarConfirm(context, ref);
-            },
+            onTap: () => _showDeleteCalendarConfirm(context, ref),
           ),
           
           const SizedBox(height: 16),
@@ -214,7 +217,9 @@ class CalendarSettingsSheet extends ConsumerWidget {
 
     // 確保至少選擇一個地區
     if (newRegions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
         const SnackBar(content: Text('至少需要選擇一個地區')),
       );
       return;
@@ -231,7 +236,9 @@ class CalendarSettingsSheet extends ConsumerWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(content: Text('更新設定失敗：$e')),
         );
       }
@@ -253,7 +260,9 @@ class CalendarSettingsSheet extends ConsumerWidget {
 
       // 顯示提示訊息
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(
             content: Text(value ? '已開啟節日顯示' : '已關閉節日顯示'),
             duration: const Duration(seconds: 2),
@@ -262,7 +271,9 @@ class CalendarSettingsSheet extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(content: Text('更新設定失敗：$e')),
         );
       }
@@ -284,7 +295,9 @@ class CalendarSettingsSheet extends ConsumerWidget {
 
       // 顯示提示訊息
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(
             content: Text(value ? '已開啟農曆顯示' : '已關閉農曆顯示'),
             duration: const Duration(seconds: 2),
@@ -293,7 +306,9 @@ class CalendarSettingsSheet extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
           SnackBar(content: Text('更新設定失敗：$e')),
         );
       }
@@ -315,13 +330,18 @@ class CalendarSettingsSheet extends ConsumerWidget {
   /// 顯示刪除行事曆確認對話框
   void _showDeleteCalendarConfirm(BuildContext context, WidgetRef ref) {
     final selectedCalendar = ref.read(selectedCalendarProvider);
-    
+
     if (selectedCalendar == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
         const SnackBar(content: Text('沒有選擇的行事曆')),
       );
       return;
     }
+
+    // 保存 sheet 的 Navigator，用於稍後關閉
+    final sheetNavigator = Navigator.of(context);
 
     // 第一次確認
     showDialog(
@@ -356,7 +376,13 @@ class CalendarSettingsSheet extends ConsumerWidget {
             onPressed: () {
               Navigator.pop(dialogContext);
               // 第二次確認
-              _showSecondDeleteConfirm(context, ref, selectedCalendar.name, selectedCalendar.id);
+              _showSecondDeleteConfirm(
+                context,
+                ref,
+                selectedCalendar.name,
+                selectedCalendar.id,
+                sheetNavigator,
+              );
             },
             child: const Text('刪除'),
           ),
@@ -367,10 +393,11 @@ class CalendarSettingsSheet extends ConsumerWidget {
 
   /// 顯示第二次刪除確認對話框
   void _showSecondDeleteConfirm(
-    BuildContext context, 
-    WidgetRef ref, 
+    BuildContext context,
+    WidgetRef ref,
     String calendarName,
     String calendarId,
+    NavigatorState sheetNavigator,
   ) {
     showDialog(
       context: context,
@@ -390,20 +417,31 @@ class CalendarSettingsSheet extends ConsumerWidget {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
+              // 先關閉確認對話框
               Navigator.pop(dialogContext);
-              
+
+              // 執行刪除
               final success = await ref
                   .read(calendarControllerProvider.notifier)
                   .deleteCalendar(calendarId);
-              
+
+              // 關閉設定 sheet
+              if (sheetNavigator.mounted) {
+                sheetNavigator.pop();
+              }
+
+              // 顯示結果訊息
               if (context.mounted) {
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.clearSnackBars();
                 if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(content: Text('行事曆已刪除')),
                   );
                 } else {
-                  final errorMessage = ref.read(calendarControllerProvider).errorMessage;
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  final errorMessage =
+                      ref.read(calendarControllerProvider).errorMessage;
+                  messenger.showSnackBar(
                     SnackBar(content: Text(errorMessage ?? '刪除失敗，請重試')),
                   );
                 }
@@ -524,7 +562,9 @@ class _LabelSettingsSheetState extends ConsumerState<_LabelSettingsSheet> {
         );
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.clearSnackBars();
+          messenger.showSnackBar(
             const SnackBar(content: Text('標籤已重設為預設值')),
           );
         }
@@ -667,23 +707,23 @@ class _LabelListItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // 色塊
+          // 圓形色塊
           Container(
-            width: 32,
-            height: 32,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               color: label.color,
-              borderRadius: BorderRadius.circular(6),
+              shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: label.color.withOpacity(0.3),
+                  color: label.color.withValues(alpha: 0.3),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
           ),
-          
+
           const SizedBox(width: 16),
           
           // 標籤名稱（可編輯）

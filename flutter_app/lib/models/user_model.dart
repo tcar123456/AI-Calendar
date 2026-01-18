@@ -150,6 +150,19 @@ class UserSettings {
     
     return timezoneDisplayNames[timezone] ?? timezone;
   }
+
+  /// 取得語言的顯示名稱
+  String getLanguageDisplayName() {
+    const languageDisplayNames = <String, String>{
+      'zh-TW': '繁體中文（台灣）',
+      'en': '英文',
+      'ja': '日文',
+      'ko': '韓文',
+      'zh-CN': '簡體中文',
+    };
+
+    return languageDisplayNames[language] ?? language;
+  }
 }
 
 /// 用戶模型

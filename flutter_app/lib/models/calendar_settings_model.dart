@@ -14,6 +14,12 @@ class CalendarSettings {
   /// 未自訂的標籤使用 DefaultEventLabels 的預設名稱
   final Map<String, String> labelNames;
 
+  /// 隱藏的標籤 ID 列表（預設為空 = 全部顯示）
+  ///
+  /// 例如：['label_1', 'label_5']
+  /// 列表中的標籤對應的行程將不會顯示在行事曆上
+  final List<String> hiddenLabelIds;
+
   /// 是否顯示節日（預設 true）
   final bool showHolidays;
 
@@ -28,6 +34,7 @@ class CalendarSettings {
 
   const CalendarSettings({
     this.labelNames = const {},
+    this.hiddenLabelIds = const [],
     this.showHolidays = true,
     this.holidayRegions = const ['taiwan'],
     this.showLunar = false,
@@ -42,6 +49,7 @@ class CalendarSettings {
 
     return CalendarSettings(
       labelNames: Map<String, String>.from(json['labelNames'] ?? {}),
+      hiddenLabelIds: List<String>.from(json['hiddenLabelIds'] ?? []),
       showHolidays: json['showHolidays'] as bool? ?? true,
       holidayRegions: List<String>.from(json['holidayRegions'] ?? ['taiwan']),
       showLunar: json['showLunar'] as bool? ?? false,
@@ -53,6 +61,7 @@ class CalendarSettings {
   Map<String, dynamic> toJson() {
     return {
       'labelNames': labelNames,
+      'hiddenLabelIds': hiddenLabelIds,
       'showHolidays': showHolidays,
       'holidayRegions': holidayRegions,
       'showLunar': showLunar,
@@ -63,6 +72,7 @@ class CalendarSettings {
   /// 複製物件並允許修改部分欄位
   CalendarSettings copyWith({
     Map<String, String>? labelNames,
+    List<String>? hiddenLabelIds,
     bool? showHolidays,
     List<String>? holidayRegions,
     bool? showLunar,
@@ -70,6 +80,7 @@ class CalendarSettings {
   }) {
     return CalendarSettings(
       labelNames: labelNames ?? this.labelNames,
+      hiddenLabelIds: hiddenLabelIds ?? this.hiddenLabelIds,
       showHolidays: showHolidays ?? this.showHolidays,
       holidayRegions: holidayRegions ?? this.holidayRegions,
       showLunar: showLunar ?? this.showLunar,
@@ -103,6 +114,7 @@ class CalendarSettings {
     if (other is! CalendarSettings) return false;
 
     return _mapEquals(labelNames, other.labelNames) &&
+        _listEquals(hiddenLabelIds, other.hiddenLabelIds) &&
         showHolidays == other.showHolidays &&
         _listEquals(holidayRegions, other.holidayRegions) &&
         showLunar == other.showLunar &&
@@ -112,6 +124,7 @@ class CalendarSettings {
   @override
   int get hashCode {
     return labelNames.hashCode ^
+        hiddenLabelIds.hashCode ^
         showHolidays.hashCode ^
         holidayRegions.hashCode ^
         showLunar.hashCode ^

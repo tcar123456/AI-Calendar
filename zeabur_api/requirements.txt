@@ -24,3 +24,7 @@ python-dotenv==1.0.0
 # 日誌
 loguru==0.7.2
 
+# 農曆與節氣計算
+lunardate==0.2.2    # 農曆轉換
+ephem==4.1.5        # 天文計算（節氣）
+
