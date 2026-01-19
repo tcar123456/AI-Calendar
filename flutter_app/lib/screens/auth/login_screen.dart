@@ -11,40 +11,72 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> 
-    with SingleTickerProviderStateMixin {
+class _LoginScreenState extends ConsumerState<LoginScreen>
+    with TickerProviderStateMixin {
   // ==================== 表單相關 ====================
-  
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
-  
+
+  /// 是否顯示 Email 登入表單
+  bool _showEmailForm = false;
+
   /// 是否為註冊模式（false 為登入模式）
   bool _isSignUpMode = false;
-  
+
   /// 是否顯示密碼
   bool _obscurePassword = true;
-  
-  /// 動畫控制器
+
+  /// 淡入動畫控制器
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+
+  /// 頁面切換動畫控制器
+  late AnimationController _slideController;
+  late Animation<Offset> _loginButtonsSlideAnimation;
+  late Animation<Offset> _emailFormSlideAnimation;
 
   @override
   void initState() {
     super.initState();
-    
-    // 初始化動畫
+
+    // 初始化淡入動畫
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: kAnimationDurationMedium),
     );
-    
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
-    
+
     _animationController.forward();
+
+    // 初始化頁面切換動畫
+    _slideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    // 登入按鈕區域：從中間向左滑出
+    _loginButtonsSlideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-1.0, 0.0),
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeInOut,
+    ));
+
+    // Email 表單區域：從右側滑入中間
+    _emailFormSlideAnimation = Tween<Offset>(
+      begin: const Offset(1.0, 0.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeInOut,
+    ));
   }
 
   @override
@@ -53,14 +85,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _passwordController.dispose();
     _nameController.dispose();
     _animationController.dispose();
+    _slideController.dispose();
     super.dispose();
+  }
+
+  /// 切換到 Email 表單（向左推入）
+  void _showEmailLoginForm() {
+    setState(() {
+      _showEmailForm = true;
+    });
+    _slideController.forward();
+  }
+
+  /// 返回登入按鈕（向右推出）
+  void _hideEmailLoginForm() {
+    _slideController.reverse().then((_) {
+      setState(() {
+        _showEmailForm = false;
+        _isSignUpMode = false;
+        _emailController.clear();
+        _passwordController.clear();
+        _nameController.clear();
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     // 監聽認證狀態
     final authState = ref.watch(authControllerProvider);
-    
+
     // 監聽錯誤訊息並顯示 SnackBar
     ref.listen<AuthState>(authControllerProvider, (previous, next) {
       if (next.errorMessage != null) {
@@ -76,46 +130,59 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     return Scaffold(
       body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(kPaddingLarge),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Logo 和標題
-                  _buildHeader(),
-                  
-                  const SizedBox(height: 48),
-                  
-                  // 登入/註冊表單
-                  _buildForm(),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // 提交按鈕
-                  _buildSubmitButton(authState),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // 切換登入/註冊模式
-                  _buildToggleModeButton(),
-                  
-                  if (!_isSignUpMode) ...[
-                    const SizedBox(height: 8),
-                    _buildForgotPasswordButton(),
-                  ],
-                  
-                  const SizedBox(height: 32),
-                  
-                  // 其他登入方式（未來可加入）
-                  _buildOtherSignInOptions(),
-                ],
+        child: Stack(
+          children: [
+            // 主要內容
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(kPaddingLarge),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Logo 和標題
+                      _buildHeader(),
+
+                      const SizedBox(height: 48),
+
+                      // 使用 ClipRect 防止動畫溢出
+                      ClipRect(
+                        child: Stack(
+                          children: [
+                            // 登入按鈕區域（向左滑出）
+                            SlideTransition(
+                              position: _loginButtonsSlideAnimation,
+                              child: _buildLoginButtons(authState),
+                            ),
+                            // Email 表單區域（從右滑入）
+                            if (_showEmailForm)
+                              SlideTransition(
+                                position: _emailFormSlideAnimation,
+                                child: _buildEmailLoginSection(authState),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
+            // 左上角返回按鈕（僅在 Email 表單顯示時出現）
+            if (_showEmailForm)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: IconButton(
+                  onPressed: _hideEmailLoginForm,
+                  icon: const Icon(Icons.arrow_back),
+                  color: Colors.grey[600],
+                  tooltip: '返回',
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -125,16 +192,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget _buildHeader() {
     return Column(
       children: [
-        // Logo 圖示
+        // Logo 圖示（黑白簡約風格）
         Container(
           width: 100,
           height: 100,
           decoration: BoxDecoration(
-            color: const Color(kPrimaryColorValue),
+            color: Colors.black,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(kPrimaryColorValue).withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -146,27 +213,129 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             color: Colors.white,
           ),
         ),
-        
+
         const SizedBox(height: 24),
-        
+
         // 應用程式標題
         Text(
           'AI 語音行事曆',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: const Color(kPrimaryColorValue),
-          ),
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
         ),
-        
+
         const SizedBox(height: 8),
-        
+
         // 副標題
         Text(
           '用聲音管理您的時間',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: Colors.grey[600],
+                color: Colors.grey[600],
+              ),
+        ),
+      ],
+    );
+  }
+
+  /// 建立登入按鈕區域（初始畫面）
+  Widget _buildLoginButtons(AuthState authState) {
+    return Column(
+      children: [
+        // Email 登入按鈕
+        SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: OutlinedButton.icon(
+            onPressed: authState.isLoading ? null : _showEmailLoginForm,
+            icon: const Icon(Icons.email_outlined, size: 24),
+            label: const Text('使用 Email 登入'),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Colors.grey[300]!),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ),
+
+        const SizedBox(height: 16),
+
+        // Google 登入按鈕
+        SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: OutlinedButton.icon(
+            onPressed: authState.isLoading ? null : _handleGoogleSignIn,
+            icon: Image.network(
+              'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+              width: 24,
+              height: 24,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.g_mobiledata, size: 28),
+            ),
+            label: const Text('使用 Google 登入'),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Colors.grey[300]!),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Facebook 登入按鈕（禁用）
+        SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: OutlinedButton.icon(
+            onPressed: null, // 禁用
+            icon: const Icon(Icons.facebook, size: 24),
+            label: const Text('使用 Facebook 登入'),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Colors.grey[300]!),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              disabledForegroundColor: Colors.grey[400],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Loading 指示器
+        if (authState.isLoading) ...[
+          const SizedBox(height: 24),
+          const CircularProgressIndicator(),
+        ],
+      ],
+    );
+  }
+
+  /// 建立 Email 登入區域
+  Widget _buildEmailLoginSection(AuthState authState) {
+    return Column(
+      children: [
+        // 登入/註冊表單
+        _buildForm(),
+
+        const SizedBox(height: 24),
+
+        // 提交按鈕
+        _buildSubmitButton(authState),
+
+        const SizedBox(height: 16),
+
+        // 切換登入/註冊模式
+        _buildToggleModeButton(),
+
+        if (!_isSignUpMode) ...[
+          const SizedBox(height: 8),
+          _buildForgotPasswordButton(),
+        ],
       ],
     );
   }
@@ -196,7 +365,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
             const SizedBox(height: 16),
           ],
-          
+
           // Email 輸入框
           TextFormField(
             controller: _emailController,
@@ -215,9 +384,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               return null;
             },
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // 密碼輸入框
           TextFormField(
             controller: _passwordController,
@@ -227,7 +396,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(
-                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
                 ),
                 onPressed: () {
                   setState(() {
@@ -259,8 +430,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       child: ElevatedButton(
         onPressed: authState.isLoading ? null : _handleSubmit,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(kPrimaryColorValue),
+          backgroundColor: Colors.black,
           foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         child: authState.isLoading
             ? const SizedBox(
@@ -286,7 +460,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       },
       child: Text(
         _isSignUpMode ? '已有帳號？點此登入' : '沒有帳號？點此註冊',
-        style: const TextStyle(color: Color(kPrimaryColorValue)),
+        style: const TextStyle(color: Colors.black),
       ),
     );
   }
@@ -302,43 +476,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  /// 建立其他登入方式
-  Widget _buildOtherSignInOptions() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            const Expanded(child: Divider()),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                '或使用以下方式登入',
-                style: TextStyle(color: Colors.grey[600], fontSize: 12),
-              ),
-            ),
-            const Expanded(child: Divider()),
-          ],
-        ),
-        
-        const SizedBox(height: 16),
-        
-        // Google 登入按鈕（未來實作）
-        OutlinedButton.icon(
-          onPressed: () {
-            // TODO: 實作 Google 登入
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Google 登入功能開發中')),
-            );
-          },
-          icon: const Icon(Icons.g_mobiledata, size: 32),
-          label: const Text('使用 Google 登入'),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 56),
-            side: BorderSide(color: Colors.grey[300]!),
-          ),
-        ),
-      ],
-    );
+  /// 處理 Google 登入
+  Future<void> _handleGoogleSignIn() async {
+    final authController = ref.read(authControllerProvider.notifier);
+    await authController.signInWithGoogle();
   }
 
   /// 處理提交
@@ -415,4 +556,3 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 }
-

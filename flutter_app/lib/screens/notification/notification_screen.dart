@@ -151,7 +151,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           _buildSectionHeader(
             icon: Icons.play_circle,
             title: '正在進行',
-            color: const Color(kSuccessColorValue),
+            color: Colors.black,
             count: ongoingEvents.length,
           ),
           ...ongoingEvents.map((e) => _buildNotificationCard(
@@ -181,7 +181,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           _buildSectionHeader(
             icon: Icons.today,
             title: '今日待辦',
-            color: const Color(kPrimaryColorValue),
+            color: Colors.black,
             count: todayEvents.length,
           ),
           ...todayEvents.map((e) => _buildNotificationCard(
@@ -277,7 +277,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
     
     switch (type) {
       case NotificationType.ongoing:
-        cardColor = const Color(kSuccessColorValue);
+        cardColor = Colors.black;
         statusIcon = Icons.play_arrow;
         final remaining = event.endTime.difference(DateTime.now());
         timeText = '進行中，剩餘 ${remaining.inMinutes} 分鐘';
@@ -289,7 +289,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
         timeText = '${until.inMinutes} 分鐘後開始';
         break;
       case NotificationType.today:
-        cardColor = const Color(kPrimaryColorValue);
+        cardColor = Colors.black;
         statusIcon = Icons.schedule;
         timeText = DateFormat('HH:mm').format(event.startTime);
         break;

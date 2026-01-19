@@ -171,7 +171,7 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
           // 搜尋圖示
           const Icon(
             Icons.search,
-            color: Color(kPrimaryColorValue),
+            color: Colors.black,
           ),
           const SizedBox(width: 12),
           // 標題
@@ -219,7 +219,7 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(
-              color: Color(kPrimaryColorValue),
+              color: Colors.black,
               width: 2,
             ),
           ),

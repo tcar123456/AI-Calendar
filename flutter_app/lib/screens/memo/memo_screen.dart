@@ -43,14 +43,29 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
     if (widget.embedded) {
       return Column(
         children: [
-          // Tab 選項
+          // Tab 選項（白底黑框粗體）
           Container(
-            color: Theme.of(context).primaryColor,
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TabBar(
               controller: _tabController,
-              indicatorColor: Colors.white,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
+              indicator: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.black, width: 2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              labelColor: Colors.black,
+              unselectedLabelColor: Colors.grey,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
               tabs: const [
                 Tab(text: '待辦事項'),
                 Tab(text: '已完成'),
@@ -74,7 +89,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
                   bottom: 16,
                   child: FloatingActionButton(
                     onPressed: () => _showMemoEditor(context, null),
-                    backgroundColor: const Color(kPrimaryColorValue),
+                    backgroundColor: Colors.black,
                     child: const Icon(Icons.add, color: Colors.white),
                   ),
                 ),
@@ -89,15 +104,36 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
       appBar: AppBar(
         title: const Text('備忘錄'),
         centerTitle: false,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: '待辦事項'),
-            Tab(text: '已完成'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.black, width: 2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              labelColor: Colors.black,
+              unselectedLabelColor: Colors.grey,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+              tabs: const [
+                Tab(text: '待辦事項'),
+                Tab(text: '已完成'),
+              ],
+            ),
+          ),
         ),
       ),
       body: TabBarView(
@@ -112,7 +148,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
       // 新增備忘錄按鈕
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showMemoEditor(context, null),
-        backgroundColor: const Color(kPrimaryColorValue),
+        backgroundColor: Colors.black,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
@@ -218,13 +254,13 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
     Color priorityColor;
     switch (memo.priority) {
       case 2:
-        priorityColor = const Color(kErrorColorValue);
+        priorityColor = const Color(0xFF333333);
         break;
       case 1:
         priorityColor = const Color(kWarningColorValue);
         break;
       default:
-        priorityColor = const Color(kSuccessColorValue);
+        priorityColor = Colors.black;
     }
 
     return Card(
@@ -246,10 +282,10 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isCompleted ? const Color(kSuccessColorValue) : Colors.grey,
+                      color: isCompleted ? Colors.black : Colors.grey,
                       width: 2,
                     ),
-                    color: isCompleted ? const Color(kSuccessColorValue) : Colors.transparent,
+                    color: isCompleted ? Colors.black : Colors.transparent,
                   ),
                   child: isCompleted
                       ? const Icon(Icons.check, size: 16, color: Colors.white)
@@ -273,7 +309,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
                             child: Icon(
                               Icons.push_pin,
                               size: 16,
-                              color: const Color(kPrimaryColorValue),
+                              color: Colors.black,
                             ),
                           ),
                         Expanded(
@@ -527,7 +563,7 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
                 children: [
                   Icon(
                     isEditing ? Icons.edit : Icons.add_task,
-                    color: const Color(kPrimaryColorValue),
+                    color: Colors.black,
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -615,7 +651,7 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
                       Icon(
                         Icons.access_time,
                         color: _reminderTime != null 
-                            ? const Color(kPrimaryColorValue)
+                            ? Colors.black
                             : Colors.grey,
                       ),
                       const SizedBox(width: 12),
@@ -653,7 +689,7 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(kPrimaryColorValue),
+                    backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),

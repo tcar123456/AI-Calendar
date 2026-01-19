@@ -92,9 +92,7 @@ class AppBottomNav extends ConsumerWidget {
     bool showBadge = false,
   }) {
     final isActive = currentIndex == index;
-    final color = isActive
-        ? const Color(kPrimaryColorValue)
-        : Colors.grey[600]!;
+    final color = isActive ? Colors.black : Colors.grey[500]!;
 
     return InkWell(
       onTap: () => onItemTap(index),
@@ -144,7 +142,7 @@ class AppBottomNav extends ConsumerWidget {
     );
   }
 
-  /// 建立麥克風按鈕
+  /// 建立麥克風按鈕（浮凸立體效果）
   Widget _buildMicButton() {
     return InkWell(
       onTap: () => onItemTap(2),
@@ -153,19 +151,37 @@ class AppBottomNav extends ConsumerWidget {
         width: 60,
         height: 60,
         decoration: BoxDecoration(
-          color: const Color(kPrimaryColorValue),
           shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFFFFFFF),
+              Color(0xFFF0F0F0),
+            ],
+          ),
+          border: Border.all(
+            color: Colors.black,
+            width: 2,
+          ),
           boxShadow: [
+            // 底部深色陰影（立體感）
             BoxShadow(
-              color: const Color(kPrimaryColorValue).withOpacity(0.4),
-              blurRadius: 12,
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 8,
               offset: const Offset(0, 4),
+            ),
+            // 頂部高光（浮凸效果）
+            BoxShadow(
+              color: Colors.white.withOpacity(0.9),
+              blurRadius: 4,
+              offset: const Offset(0, -2),
             ),
           ],
         ),
         child: const Icon(
           Icons.mic,
-          color: Colors.white,
+          color: Colors.black,
           size: 32,
         ),
       ),

@@ -273,6 +273,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                     child: NotificationListener<ScrollNotification>(
                       key: ValueKey(_isCurrentlyViewMode),
                       onNotification: (notification) {
+                        // 當處於編輯/新增模式時，禁用下滑關閉功能
+                        // 避免用戶在編輯時意外下滑導致資料遺失
+                        if (!_isCurrentlyViewMode) {
+                          return false; // 不處理 overscroll，禁用下滑關閉
+                        }
+
                         // 處理 overscroll 事件：當在頂部繼續向下拖動時關閉面板
                         if (notification is OverscrollNotification) {
                           // 只處理向下的 overscroll（負值表示向下拉）
@@ -535,13 +541,13 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Color(kPrimaryColorValue),
+                            color: Colors.black,
                           ),
                         )
                       : const Text(
                           '儲存',
                           style: TextStyle(
-                            color: Color(kPrimaryColorValue),
+                            color: Colors.black,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -746,7 +752,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(kPrimaryColorValue) : Colors.grey[100],
+            color: isSelected ? Colors.black : Colors.grey[100],
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -1314,7 +1320,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('結束時間不能早於開始時間'),
-          backgroundColor: Color(kErrorColorValue),
+          backgroundColor: const Color(0xFF333333),
         ),
       );
       return;
@@ -1648,7 +1654,7 @@ class _TimePickerBottomSheetState extends State<_TimePickerBottomSheet> {
                     child: const Text(
                       '確認',
                       style: TextStyle(
-                        color: Color(kPrimaryColorValue),
+                        color: Colors.black,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1860,7 +1866,7 @@ class _ReminderPickerBottomSheetState extends State<_ReminderPickerBottomSheet> 
                     child: const Text(
                       '確認',
                       style: TextStyle(
-                        color: Color(kPrimaryColorValue),
+                        color: Colors.black,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1878,7 +1884,7 @@ class _ReminderPickerBottomSheetState extends State<_ReminderPickerBottomSheet> 
               return CheckboxListTile(
                 title: Text(entry.value),
                 value: isChecked,
-                activeColor: const Color(kPrimaryColorValue),
+                activeColor: Colors.black,
                 onChanged: (value) {
                   setState(() {
                     if (value == true) {

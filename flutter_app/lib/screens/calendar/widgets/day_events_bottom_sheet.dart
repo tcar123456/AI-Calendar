@@ -190,7 +190,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
                         // 日曆圖標
                         const Icon(
                           Icons.event,
-                          color: Color(kPrimaryColorValue),
+                          color: Colors.black,
                           size: 22,
                         ),
                         const SizedBox(width: 10),
@@ -308,13 +308,13 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(kPrimaryColorValue).withOpacity(0.1),
+            color: Colors.black.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Icon(
             Icons.add,
             size: 22,
-            color: Color(kPrimaryColorValue),
+            color: Colors.black,
           ),
         ),
       ),
@@ -610,7 +610,7 @@ class _CardModeEventItem extends StatelessWidget {
       }
     }
     // 預設使用主色
-    return const Color(kPrimaryColorValue);
+    return Colors.black;
   }
 
   /// 建立時間顯示（時間範圍）
@@ -1180,7 +1180,7 @@ class _TimelineView extends StatelessWidget {
       }
     }
     // 預設使用主色
-    return const Color(kPrimaryColorValue);
+    return Colors.black;
   }
 }
 

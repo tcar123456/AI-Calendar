@@ -63,46 +63,56 @@ class MyApp extends ConsumerWidget {
       ],
       locale: const Locale('zh', 'TW'), // 預設使用繁體中文
       
-      // 主題設定
+      // 主題設定（黑白簡約風格）
       theme: ThemeData(
         // 使用 Material 3 設計
         useMaterial3: true,
-        
-        // 主色調（Indigo）
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6366F1),
-          brightness: Brightness.light,
+
+        // 黑白主色調
+        colorScheme: const ColorScheme.light(
+          primary: Colors.black,
+          onPrimary: Colors.white,
+          secondary: Color(0xFF666666),
+          onSecondary: Colors.white,
+          surface: Colors.white,
+          onSurface: Colors.black,
+          error: Color(0xFF333333),
+          onError: Colors.white,
         ),
-        
+
         // 字體設定（使用 Noto Sans TC 中文字體）
         textTheme: GoogleFonts.notoSansTextTheme(
           Theme.of(context).textTheme,
         ),
-        
-        // AppBar 主題
+
+        // AppBar 主題（黑白風格）
         appBarTheme: AppBarTheme(
           centerTitle: true,
           elevation: 0,
-          backgroundColor: const Color(0xFF6366F1),
-          foregroundColor: Colors.white,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
           titleTextStyle: GoogleFonts.notoSans(
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
+            color: Colors.black,
           ),
         ),
-        
+
         // 卡片主題
         cardTheme: CardThemeData(
-          elevation: 2,
+          elevation: 0,
+          color: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
           ),
         ),
-        
-        // 按鈕主題
+
+        // 按鈕主題（黑底白字）
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -113,28 +123,78 @@ class MyApp extends ConsumerWidget {
             ),
           ),
         ),
-        
-        // 輸入框主題
+
+        // 次要按鈕主題（白底黑邊）
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            side: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: GoogleFonts.notoSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+
+        // 輸入框主題（白底細黑邊）
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.grey[100],
+          fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+            borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+            borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
+            borderSide: const BorderSide(color: Colors.black, width: 2),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.red, width: 2),
+            borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+
+        // Divider 主題
+        dividerTheme: const DividerThemeData(
+          color: Color(0xFFE5E5E5),
+          thickness: 1,
+        ),
+
+        // Switch 主題
+        switchTheme: SwitchThemeData(
+          thumbColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.black;
+            }
+            return Colors.grey;
+          }),
+          trackColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.black.withOpacity(0.5);
+            }
+            return Colors.grey.withOpacity(0.3);
+          }),
+        ),
+
+        // Checkbox 主題
+        checkboxTheme: CheckboxThemeData(
+          fillColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.black;
+            }
+            return Colors.transparent;
+          }),
+          checkColor: WidgetStateProperty.all(Colors.white),
+          side: const BorderSide(color: Color(0xFF666666), width: 1.5),
         ),
       ),
       

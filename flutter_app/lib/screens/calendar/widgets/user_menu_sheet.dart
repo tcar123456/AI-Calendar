@@ -5,6 +5,7 @@ import '../../../models/calendar_model.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/calendar_provider.dart';
+import '../../../services/firebase_service.dart';
 import '../../../utils/constants.dart';
 import '../profile_edit_screen.dart';
 
@@ -37,9 +38,7 @@ class UserMenuSheet extends ConsumerStatefulWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => UserMenuSheet(
         onSettings: onSettings,
         onSignOut: onSignOut,
@@ -72,11 +71,17 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
         MediaQuery.of(context).padding.top -
         kToolbarHeight;
 
-    return SafeArea(
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: maxSheetHeight,
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: maxSheetHeight,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
         ),
+      ),
+      child: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -91,21 +96,20 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              
+
               // 用戶資訊
               _buildUserInfo(),
-              
+
               const Divider(height: 24),
               
-              // 行事曆區塊標題（顏色隨選擇的行事曆變更）
+              // 行事曆區塊標題
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: kPaddingMedium),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.calendar_month,
-                      // 使用選擇的行事曆顏色，若無則使用預設主題色
-                      color: selectedCalendar?.color ?? const Color(kPrimaryColorValue),
+                      color: Colors.black,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -131,11 +135,11 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
                     calendars,
                     selectedCalendar,
                   ),
-                  loading: () => Center(
+                  loading: () => const Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: EdgeInsets.all(20),
                       child: CircularProgressIndicator(
-                        color: selectedCalendar?.color ?? const Color(kPrimaryColorValue),
+                        color: Colors.black,
                       ),
                     ),
                   ),
@@ -170,23 +174,19 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
   }
 
   /// 建立用戶資訊區域
-  /// 
+  ///
   /// 顯示用戶頭像、名稱、Email，右側有鉛筆編輯圖示
   /// 點擊可進入個人資料編輯頁面
   /// 內部監聽 currentUserDataProvider 以確保資料即時更新
   Widget _buildUserInfo() {
-    // 取得當前選擇的行事曆顏色作為主題色
-    final selectedCalendar = ref.watch(selectedCalendarProvider);
-    final themeColor = selectedCalendar?.color ?? const Color(kPrimaryColorValue);
-    
     // 監聽用戶資料（在 Widget 內部監聽以確保即時更新）
     final userDataAsync = ref.watch(currentUserDataProvider);
-    
+
     return userDataAsync.when(
       // 資料載入中
-      loading: () => ListTile(
-        leading: CircularProgressIndicator(color: themeColor),
-        title: const Text('載入中...'),
+      loading: () => const ListTile(
+        leading: CircularProgressIndicator(color: Colors.black),
+        title: Text('載入中...'),
       ),
       // 載入失敗
       error: (error, _) => const ListTile(
@@ -194,12 +194,12 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
         title: Text('載入失敗'),
       ),
       // 資料載入成功
-      data: (user) => _buildUserInfoContent(user, themeColor),
+      data: (user) => _buildUserInfoContent(user),
     );
   }
-  
+
   /// 建立用戶資訊內容
-  Widget _buildUserInfoContent(UserModel? user, Color themeColor) {
+  Widget _buildUserInfoContent(UserModel? user) {
     // 點擊區域可進入個人資料編輯頁面
     return InkWell(
       onTap: () {
@@ -207,16 +207,22 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
         final navigator = Navigator.of(context);
         final onSettings = widget.onSettings;
         final onSignOut = widget.onSignOut;
-        
+
         // 關閉底部選單
         Navigator.pop(context);
-        
+
         // 導航至個人資料編輯頁面，並在返回後重新打開用戶選單
         navigator.push(
           MaterialPageRoute(
             builder: (context) => ProfileEditScreen(user: user),
           ),
         ).then((_) {
+          // 檢查用戶是否仍然登入（避免登出後仍彈出面板）
+          final firebaseService = FirebaseService();
+          if (firebaseService.currentUser == null) {
+            return; // 用戶已登出，不重新打開選單
+          }
+
           // 返回時重新打開用戶選單
           UserMenuSheet.show(
             context: navigator.context,
@@ -232,14 +238,14 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
           children: [
             // 用戶頭像
             CircleAvatar(
-              backgroundColor: themeColor.withOpacity(0.1),
+              backgroundColor: Colors.black.withOpacity(0.1),
               backgroundImage: user?.photoURL != null
                   ? NetworkImage(user!.photoURL!)
                   : null,
               child: user?.photoURL == null
-                  ? Icon(
+                  ? const Icon(
                       Icons.person,
-                      color: themeColor,
+                      color: Colors.black,
                     )
                   : null,
             ),
@@ -268,9 +274,9 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
               ),
             ),
             // 鉛筆編輯圖示（位於帳號右邊）
-            Icon(
+            const Icon(
               Icons.edit,
-              color: themeColor,
+              color: Colors.black,
               size: 20,
             ),
           ],
@@ -459,66 +465,77 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
   void _showCalendarOptionsMenu(CalendarModel calendar) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 標題
-            Padding(
-              padding: const EdgeInsets.all(kPaddingMedium),
-              child: Row(
-                children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: calendar.color,
-                      shape: BoxShape.circle,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(20),
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 標題列
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: kPaddingMedium,
+                  vertical: kPaddingSmall,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 空白區域（保持對稱）
+                    const SizedBox(width: 48),
+
+                    // 標題（行事曆名稱）
+                    Text(
+                      calendar.name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    calendar.name,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+
+                    // 關閉按鈕
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            
-            const Divider(height: 1),
-            
-            // 編輯
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('編輯行事曆'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                Navigator.pop(context);
-                _showEditCalendarDialog(calendar);
-              },
-            ),
-            
-            // 刪除行事曆
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text(
-                '刪除行事曆',
-                style: TextStyle(color: Colors.red),
+
+              const Divider(height: 1),
+
+              // 編輯
+              ListTile(
+                title: const Text('編輯行事曆'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.pop(context);
+                  _showEditCalendarDialog(calendar);
+                },
               ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _showDeleteCalendarConfirm(calendar);
-              },
-            ),
-            
-            const SizedBox(height: 16),
-          ],
+
+              // 刪除行事曆
+              ListTile(
+                title: const Text(
+                  '刪除行事曆',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showDeleteCalendarConfirm(calendar);
+                },
+              ),
+
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -886,13 +903,11 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
     final navigator = Navigator.of(context);
     final onSettings = widget.onSettings;
     final onSignOut = widget.onSignOut;
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       // 修復：不再傳遞 parentContext，改用 widget 自身的 context 來顯示 SnackBar
       builder: (sheetContext) => _AppSettingsSheet(
         navigator: navigator,
@@ -934,103 +949,101 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
   Widget build(BuildContext context) {
     // 監聽用戶資料以取得設定
     final userDataAsync = ref.watch(currentUserDataProvider);
-    
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 標題區域
-          _buildHeader(context),
-          
-          const Divider(height: 1),
-          
-          // 通知設定區塊
-          _buildNotificationSection(userDataAsync),
-          
-          const Divider(height: 1),
-          
-          // 起始日設定（從用戶設定讀取當前值）
-          userDataAsync.when(
-            data: (user) {
-              final weekStartDay = user?.settings.getWeekStartDayName() ?? '星期日';
-              return ListTile(
-                leading: const Icon(Icons.calendar_view_week),
-                title: const Text('起始日設定'),
-                subtitle: Text(weekStartDay),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showWeekStartDayPicker(user),
-              );
-            },
-            loading: () => const ListTile(
-              leading: Icon(Icons.calendar_view_week),
-              title: Text('起始日設定'),
-              subtitle: Text('載入中...'),
-            ),
-            error: (_, __) => const ListTile(
-              leading: Icon(Icons.calendar_view_week),
-              title: Text('起始日設定'),
-              subtitle: Text('載入失敗'),
-            ),
-          ),
-          
-          // 時區設定（從用戶設定讀取當前值）
-          userDataAsync.when(
-            data: (user) {
-              final timezone = user?.settings.getTimezoneDisplayName() ?? '台北 (GMT+8)';
-              return ListTile(
-                leading: const Icon(Icons.access_time),
-                title: const Text('時區設定'),
-                subtitle: Text(timezone),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showTimezonePicker(user),
-              );
-            },
-            loading: () => const ListTile(
-              leading: Icon(Icons.access_time),
-              title: Text('時區設定'),
-              subtitle: Text('載入中...'),
-            ),
-            error: (_, __) => const ListTile(
-              leading: Icon(Icons.access_time),
-              title: Text('時區設定'),
-              subtitle: Text('載入失敗'),
-            ),
-          ),
 
-          // 語言設定（從用戶設定讀取當前值）
-          userDataAsync.when(
-            data: (user) {
-              final language = user?.settings.getLanguageDisplayName() ?? '繁體中文（台灣）';
-              return ListTile(
-                leading: const Icon(Icons.language),
-                title: const Text('語言'),
-                subtitle: Text(language),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showLanguagePicker(user),
-              );
-            },
-            loading: () => const ListTile(
-              leading: Icon(Icons.language),
-              title: Text('語言'),
-              subtitle: Text('載入中...'),
-            ),
-            error: (_, __) => const ListTile(
-              leading: Icon(Icons.language),
-              title: Text('語言'),
-              subtitle: Text('載入失敗'),
-            ),
-          ),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 標題區域
+            _buildHeader(context),
 
-          // 支援選項
-          ListTile(
-            leading: const Icon(Icons.support_agent),
-            title: const Text('支援'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _showSupportSheet(),
-          ),
+            const Divider(height: 1),
 
-          const SizedBox(height: 16),
-        ],
+            // 通知設定區塊
+            _buildNotificationSection(userDataAsync),
+
+            const Divider(height: 1),
+
+            // 起始日設定（從用戶設定讀取當前值）
+            userDataAsync.when(
+              data: (user) {
+                final weekStartDay = user?.settings.getWeekStartDayName() ?? '星期日';
+                return ListTile(
+                  title: const Text('起始日設定'),
+                  subtitle: Text(weekStartDay),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showWeekStartDayPicker(user),
+                );
+              },
+              loading: () => const ListTile(
+                title: Text('起始日設定'),
+                subtitle: Text('載入中...'),
+              ),
+              error: (_, __) => const ListTile(
+                title: Text('起始日設定'),
+                subtitle: Text('載入失敗'),
+              ),
+            ),
+
+            // 時區設定（從用戶設定讀取當前值）
+            userDataAsync.when(
+              data: (user) {
+                final timezone = user?.settings.getTimezoneDisplayName() ?? '台北 (GMT+8)';
+                return ListTile(
+                  title: const Text('時區設定'),
+                  subtitle: Text(timezone),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showTimezonePicker(user),
+                );
+              },
+              loading: () => const ListTile(
+                title: Text('時區設定'),
+                subtitle: Text('載入中...'),
+              ),
+              error: (_, __) => const ListTile(
+                title: Text('時區設定'),
+                subtitle: Text('載入失敗'),
+              ),
+            ),
+
+            // 語言設定（從用戶設定讀取當前值）
+            userDataAsync.when(
+              data: (user) {
+                final language = user?.settings.getLanguageDisplayName() ?? '繁體中文（台灣）';
+                return ListTile(
+                  title: const Text('語言'),
+                  subtitle: Text(language),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showLanguagePicker(user),
+                );
+              },
+              loading: () => const ListTile(
+                title: Text('語言'),
+                subtitle: Text('載入中...'),
+              ),
+              error: (_, __) => const ListTile(
+                title: Text('語言'),
+                subtitle: Text('載入失敗'),
+              ),
+            ),
+
+            // 支援選項
+            ListTile(
+              title: const Text('支援'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showSupportSheet(),
+            ),
+
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
@@ -1038,12 +1051,16 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
   /// 建立標題區域
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(kPaddingMedium),
+      padding: const EdgeInsets.symmetric(
+        horizontal: kPaddingMedium,
+        vertical: kPaddingSmall,
+      ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // 返回按鈕（返回用戶選單）
           IconButton(
             icon: const Icon(Icons.arrow_back),
-            // 返回時重新打開用戶選單
             onPressed: () {
               Navigator.pop(context);
               // 使用 Navigator 的 context 重新打開用戶選單
@@ -1056,18 +1073,22 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
-          const SizedBox(width: 12),
-          const Icon(
-            Icons.settings,
-            color: Color(kPrimaryColorValue),
-          ),
-          const SizedBox(width: 12),
+
+          // 居中標題
           const Text(
             '設定',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.w600,
             ),
+          ),
+
+          // 關閉按鈕
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.pop(context),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
         ],
       ),
@@ -1097,7 +1118,7 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
                 children: [
                   const Icon(
                     Icons.notifications,
-                    color: Color(kPrimaryColorValue),
+                    color: Colors.black,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
@@ -1121,7 +1142,7 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
                 scale: 0.7,
                 child: Switch(
                   value: notificationsEnabled,
-                  activeColor: const Color(kPrimaryColorValue),
+                  activeColor: Colors.black,
                   onChanged: (value) => _updateNotificationEnabled(value, user),
                 ),
               ),
@@ -1129,7 +1150,6 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
             
             // 通知時間設定
             ListTile(
-              leading: const Icon(Icons.schedule),
               title: const Text('通知時間'),
               subtitle: Text(notificationTime),
               trailing: const Icon(Icons.chevron_right),
@@ -1208,7 +1228,6 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
 
               // 公告
               ListTile(
-                leading: const Icon(Icons.campaign_outlined),
                 title: const Text('公告'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -1226,7 +1245,6 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
 
               // 關於
               ListTile(
-                leading: const Icon(Icons.info_outline),
                 title: const Text('關於'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -1244,7 +1262,6 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
 
               // 條款
               ListTile(
-                leading: const Icon(Icons.description_outlined),
                 title: const Text('條款'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -1262,7 +1279,6 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
 
               // 隱私權政策
               ListTile(
-                leading: const Icon(Icons.privacy_tip_outlined),
                 title: const Text('隱私權政策'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -1396,7 +1412,7 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
                       child: const Text(
                         '確定',
                         style: TextStyle(
-                          color: Color(kPrimaryColorValue),
+                          color: Colors.black,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1593,7 +1609,7 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
                   leading: Icon(
                     isSelected ? Icons.check_circle : Icons.circle_outlined,
                     color: isSelected 
-                        ? const Color(kPrimaryColorValue) 
+                        ? Colors.black 
                         : Colors.grey[400],
                   ),
                   title: Text(
@@ -1601,12 +1617,12 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
                     style: TextStyle(
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       color: isSelected 
-                          ? const Color(kPrimaryColorValue) 
+                          ? Colors.black 
                           : Colors.black87,
                     ),
                   ),
                   selected: isSelected,
-                  selectedTileColor: const Color(kPrimaryColorValue).withOpacity(0.1),
+                  selectedTileColor: Colors.black.withOpacity(0.1),
                   onTap: () => Navigator.of(sheetContext).pop(value),
                 );
               }),
@@ -1658,7 +1674,7 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
   /// 顯示時區選擇器
   Future<void> _showTimezonePicker(UserModel? user) async {
     if (user == null) return;
-    
+
     // 常見時區列表（按地區分組）
     final timezones = [
       // 亞洲
@@ -1682,53 +1698,63 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
       // 通用
       {'value': 'UTC', 'name': 'UTC', 'offset': 'GMT+0'},
     ];
-    
+
     // 取得當前設定的時區
     final currentValue = user.settings.timezone;
-    
+
     // 顯示選擇對話框
     final selectedValue = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.6,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(20),
           ),
+        ),
+        child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 標題
+              // 標題列
               Padding(
-                padding: const EdgeInsets.all(kPaddingMedium),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: kPaddingMedium,
+                  vertical: kPaddingSmall,
+                ),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(
-                      Icons.public,
-                      color: Color(kPrimaryColorValue),
-                    ),
-                    const SizedBox(width: 12),
+                    // 空白區域（保持對稱）
+                    const SizedBox(width: 48),
+
+                    // 標題
                     const Text(
                       '選擇時區',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const Spacer(),
+
+                    // 關閉按鈕
                     IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.of(sheetContext).pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
               ),
-              
+
               const Divider(height: 1),
-              
+
               // 時區列表
               Flexible(
                 child: ListView.builder(
@@ -1740,23 +1766,33 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
                     final name = tz['name'] as String;
                     final offset = tz['offset'] as String;
                     final isSelected = value == currentValue;
-                    
+
                     return ListTile(
                       leading: Icon(
                         isSelected ? Icons.check_circle : Icons.circle_outlined,
-                        color: isSelected 
-                            ? const Color(kPrimaryColorValue) 
-                            : Colors.grey[400], 
+                        color: isSelected
+                            ? Colors.black
+                            : Colors.grey[400],
                       ),
-                      title: Text(name),
+                      title: Text(
+                        name,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: isSelected
+                              ? Colors.black
+                              : Colors.black87,
+                        ),
+                      ),
                       subtitle: Text(offset),
                       selected: isSelected,
-                      selectedTileColor: const Color(kPrimaryColorValue).withOpacity(0.1),
+                      selectedTileColor: Colors.black.withOpacity(0.1),
                       onTap: () => Navigator.of(sheetContext).pop(value),
                     );
                   },
                 ),
               ),
+
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -1877,7 +1913,7 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
                   leading: Icon(
                     isSelected ? Icons.check_circle : Icons.circle_outlined,
                     color: isSelected
-                        ? const Color(kPrimaryColorValue)
+                        ? Colors.black
                         : Colors.grey[400],
                   ),
                   title: Row(
@@ -1888,7 +1924,7 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                           color: available
                               ? (isSelected
-                                  ? const Color(kPrimaryColorValue)
+                                  ? Colors.black
                                   : Colors.black87)
                               : Colors.grey[500],
                         ),
@@ -1916,7 +1952,7 @@ class _AppSettingsSheetState extends ConsumerState<_AppSettingsSheet> {
                     ],
                   ),
                   selected: isSelected,
-                  selectedTileColor: const Color(kPrimaryColorValue).withOpacity(0.1),
+                  selectedTileColor: Colors.black.withOpacity(0.1),
                   onTap: available
                       ? () => Navigator.of(sheetContext).pop(value)
                       : () {

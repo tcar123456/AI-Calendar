@@ -142,10 +142,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         ],
       ),
     );
-    
+
     if (confirmed == true && mounted) {
-      // 執行登出
-      ref.read(authControllerProvider.notifier).signOut();
+      // 執行登出並等待完成
+      await ref.read(authControllerProvider.notifier).signOut();
+
+      // 關閉此頁面，讓 main.dart 的 authState 正確切換到登入頁面
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     }
   }
 
@@ -153,7 +158,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Widget build(BuildContext context) {
     // 取得當前選擇的行事曆顏色作為主題色
     final selectedCalendar = ref.watch(selectedCalendarProvider);
-    final themeColor = selectedCalendar?.color ?? const Color(kPrimaryColorValue);
+    final themeColor = selectedCalendar?.color ?? Colors.black;
     
     return Scaffold(
       appBar: AppBar(
@@ -198,23 +203,36 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             children: [
             // 用戶頭像區域
             _buildAvatarSection(themeColor),
-            
-            const SizedBox(height: 32),
-            
-            // 用戶資訊表單
-            _buildUserInfoForm(themeColor),
-            
+
             const SizedBox(height: 24),
             
+            const SizedBox(height: 16),
+
+            // 用戶資訊表單（顯示名稱 + 電子郵件）
+            _buildUserInfoForm(themeColor),
+
+            const SizedBox(height: 24),
+            
+            const SizedBox(height: 16),
+
+            // 帳號連結
+            _buildAccountLinkSection(themeColor),
+
+            const SizedBox(height: 24),
+            
+            const SizedBox(height: 16),
+
             // 帳號資訊（唯讀）
             _buildAccountInfo(themeColor),
-            
-            const SizedBox(height: 48),
-            
+
+            const SizedBox(height: 24),
+          
+            const SizedBox(height: 24),
+
             // 登出按鈕
             _buildSignOutButton(),
-            
-              const SizedBox(height: 24),
+
+            const SizedBox(height: 24),
             ],
           ),
         ),
@@ -283,17 +301,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 標題
-        Text(
-          '基本資訊',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: themeColor,
-          ),
-        ),
+
         const SizedBox(height: 16),
-        
+
         // 顯示名稱輸入
         TextField(
           controller: _displayNameController,
@@ -310,27 +320,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           cursorColor: themeColor,
           enabled: !_isSaving,
         ),
-      ],
-    );
-  }
 
-  /// 建立帳號資訊區域（唯讀）
-  Widget _buildAccountInfo(Color themeColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 標題
-        Text(
-          '帳號資訊',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: themeColor,
-          ),
-        ),
         const SizedBox(height: 16),
-        
-        // Email（唯讀）
+
+        // 電子郵件（唯讀）
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -370,7 +363,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        
+
         // 提示文字
         Text(
           '電子郵件無法修改',
@@ -379,9 +372,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             fontSize: 12,
           ),
         ),
-        
-        const SizedBox(height: 24),
-        
+      ],
+    );
+  }
+
+/// 建立帳號資訊區域（唯讀）
+  Widget _buildAccountInfo(Color themeColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         // 帳號建立時間
         _buildInfoRow(
           icon: Icons.calendar_today_outlined,
@@ -391,6 +390,164 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       ],
     );
   }
+
+
+
+  /// 建立帳號連結區域
+  Widget _buildAccountLinkSection(Color themeColor) {
+    // 取得已連結的登入方式
+    final firebaseService = ref.read(firebaseServiceProvider);
+    final linkedProviders = firebaseService.getLinkedProviders();
+
+    final isGoogleLinked = linkedProviders.contains('google.com');
+    final isFacebookLinked = linkedProviders.contains('facebook.com');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        
+        const SizedBox(height: 8),
+        Text(
+          '連結其他帳號後，可使用多種方式登入',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Google 連結按鈕
+        _buildLinkButton(
+          icon: Icons.g_mobiledata,
+          iconColor: Colors.red,
+          label: 'Google',
+          isLinked: isGoogleLinked,
+          onPressed: isGoogleLinked ? null : _handleLinkGoogle,
+        ),
+
+        const SizedBox(height: 12),
+
+        // Facebook 連結按鈕
+        _buildLinkButton(
+          icon: Icons.facebook,
+          iconColor: Colors.blue,
+          label: 'Facebook',
+          isLinked: isFacebookLinked,
+          onPressed: null, // 暫不支援
+          isDisabled: true,
+        ),
+      ],
+    );
+  }
+
+  /// 建立連結按鈕
+  Widget _buildLinkButton({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required bool isLinked,
+    required VoidCallback? onPressed,
+    bool isDisabled = false,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: isDisabled ? null : onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          side: BorderSide(
+            color: isLinked
+                ? Colors.green
+                : (isDisabled ? Colors.grey[300]! : Colors.grey[400]!),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: isDisabled ? Colors.grey[400] : iconColor,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isDisabled ? Colors.grey[400] : Colors.black87,
+                ),
+              ),
+            ),
+            if (isLinked)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  '已連結',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.green,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              )
+            else if (!isDisabled)
+              Text(
+                '連結',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              )
+            else
+              Text(
+                '尚未開放',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[400],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 處理連結 Google 帳號
+  Future<void> _handleLinkGoogle() async {
+    try {
+      final firebaseService = ref.read(firebaseServiceProvider);
+      await firebaseService.linkWithGoogle();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google 帳號連結成功'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 重新整理頁面以更新連結狀態
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  
 
   /// 建立資訊列
   Widget _buildInfoRow({

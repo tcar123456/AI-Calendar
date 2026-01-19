@@ -23,6 +23,7 @@ class CalendarSettingsSheet extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -44,22 +45,18 @@ class CalendarSettingsSheet extends ConsumerWidget {
         children: [
           // 標題區域
           Padding(
-            padding: const EdgeInsets.all(kPaddingMedium),
-            child: Row(
-              children: const [
-                Icon(
-                  Icons.space_dashboard,
-                  color: Color(kPrimaryColorValue),
+            padding: const EdgeInsets.symmetric(
+              horizontal: kPaddingMedium,
+              vertical: kPaddingSmall,
+            ),
+            child: const Center(
+              child: Text(
+                '行事曆設定',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
                 ),
-                SizedBox(width: 12),
-                Text(
-                  '行事曆設定',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
           
@@ -100,7 +97,7 @@ class CalendarSettingsSheet extends ConsumerWidget {
               scale: 0.7,
               child: Switch(
                 value: showLunar,
-                activeColor: const Color(kPrimaryColorValue),
+                activeColor: Colors.black,
                 onChanged: (value) => _updateShowLunar(context, ref, value),
               ),
             ),
@@ -116,7 +113,7 @@ class CalendarSettingsSheet extends ConsumerWidget {
               scale: 0.7,
               child: Switch(
                 value: showHolidays,
-                activeColor: const Color(kPrimaryColorValue),
+                activeColor: Colors.black,
                 onChanged: (value) => _updateShowHolidays(context, ref, value),
               ),
             ),
@@ -320,6 +317,7 @@ class CalendarSettingsSheet extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -588,34 +586,45 @@ class _LabelSettingsSheetState extends ConsumerState<_LabelSettingsSheet> {
           children: [
             // 標題區域
             Padding(
-              padding: const EdgeInsets.all(kPaddingMedium),
+              padding: const EdgeInsets.symmetric(
+                horizontal: kPaddingMedium,
+                vertical: kPaddingSmall,
+              ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // 返回按鈕
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
+                  // 取消按鈕
+                  TextButton(
                     onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                    child: Text(
+                      '取消',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  const Icon(
-                    Icons.label,
-                    color: Color(kPrimaryColorValue),
-                  ),
-                  const SizedBox(width: 12),
+
+                  // 標題
                   const Text(
                     '行程標籤',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const Spacer(),
+
                   // 重設按鈕
                   TextButton(
                     onPressed: _resetToDefault,
-                    child: const Text('重設'),
+                    child: const Text(
+                      '重設',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -866,7 +875,7 @@ class _RegionPickerBottomSheetState extends State<_RegionPickerBottomSheet> {
                     child: const Text(
                       '確認',
                       style: TextStyle(
-                        color: Color(kPrimaryColorValue),
+                        color: Colors.black,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -884,8 +893,8 @@ class _RegionPickerBottomSheetState extends State<_RegionPickerBottomSheet> {
               
               return CheckboxListTile(
                 title: Text(region.name),
-                subtitle: region.isImplemented 
-                    ? null 
+                subtitle: region.isImplemented
+                    ? null
                     : Text(
                         '即將推出',
                         style: TextStyle(
@@ -894,7 +903,7 @@ class _RegionPickerBottomSheetState extends State<_RegionPickerBottomSheet> {
                         ),
                       ),
                 value: isChecked,
-                activeColor: const Color(kPrimaryColorValue),
+                activeColor: Colors.black,
                 onChanged: (value) {
                   setState(() {
                     if (value == true) {

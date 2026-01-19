@@ -24,35 +24,42 @@ class WhisperService:
     async def transcribe_from_url(self, audio_url: str) -> str:
         """
         從 URL 下載音檔並轉錄為文字
-        
+
         Args:
             audio_url: 音檔 URL（Firebase Storage URL）
-        
+
         Returns:
             轉錄的文字內容
-        
+
         Raises:
             Exception: 轉錄失敗時拋出例外
         """
         try:
             logger.info(f"開始下載音檔：{audio_url}")
-            
+
+            # 從 URL 中提取檔案擴展名
+            # Firebase Storage URL 格式：.../{userId}/{timestamp}.{ext}?...
+            import re
+            ext_match = re.search(r'\.(\w+)\?', audio_url)
+            file_ext = ext_match.group(1) if ext_match else 'wav'
+            logger.info(f"檔案格式：{file_ext}")
+
             # 下載音檔
             async with httpx.AsyncClient() as client:
                 response = await client.get(audio_url, timeout=30.0)
                 response.raise_for_status()
                 audio_data = response.content
-            
+
             logger.info(f"音檔下載完成，大小：{len(audio_data)} bytes")
-            
-            # 將音檔存為暫存檔案
-            temp_file_path = "/tmp/audio.m4a"
+
+            # 將音檔存為暫存檔案（使用正確的擴展名）
+            temp_file_path = f"/tmp/audio.{file_ext}"
             with open(temp_file_path, "wb") as f:
                 f.write(audio_data)
-            
+
             # 使用 Whisper API 轉錄
             logger.info("開始進行語音辨識...")
-            
+
             with open(temp_file_path, "rb") as audio_file:
                 transcript = self.client.audio.transcriptions.create(
                     model="whisper-1",
@@ -60,11 +67,11 @@ class WhisperService:
                     language="zh",  # 指定中文
                     response_format="text"
                 )
-            
+
             # 清理暫存檔案
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
-            
+
             logger.info(f"語音辨識完成：{transcript}")
             return transcript
             

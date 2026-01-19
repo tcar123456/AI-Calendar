@@ -100,11 +100,12 @@ class VoiceService {
       // 開始錄音（移動平台需要路徑，Web 平台會自動生成）
       if (kIsWeb) {
         // Web 平台：使用 WAV 格式，不需要檔案路徑
+        // 優化：降低採樣率至 16kHz（Whisper 官方推薦）
         await _recorder.start(
           const RecordConfig(
             encoder: AudioEncoder.wav,
-            sampleRate: 44100,
-            numChannels: 1,
+            sampleRate: 16000,  // 從 44100 降至 16000（Whisper 最佳）
+            numChannels: 1,     // 單聲道
           ),
           path: '', // Web 平台傳空字串
         );
@@ -119,11 +120,13 @@ class VoiceService {
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         _currentRecordingPath = '${directory.path}/voice_$timestamp.m4a';
 
+        // 優化：降低位元率和採樣率以加速上傳和 Whisper 處理
         await _recorder.start(
           const RecordConfig(
             encoder: AudioEncoder.aacLc,
-            bitRate: 128000,
-            sampleRate: 44100,
+            bitRate: 64000,     // 從 128000 降至 64000（減少 50% 檔案大小）
+            sampleRate: 16000,  // 從 44100 降至 16000（Whisper 官方推薦）
+            numChannels: 1,     // 單聲道
           ),
           path: _currentRecordingPath!,
         );

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/calendar_model.dart';
 import '../models/event_model.dart';
 import '../models/memo_model.dart';
@@ -20,15 +21,18 @@ class FirebaseService {
   FirebaseService._internal();
 
   // ==================== Firebase 實例 ====================
-  
+
   /// Firebase Auth 實例
   final auth.FirebaseAuth _auth = auth.FirebaseAuth.instance;
-  
+
   /// Firestore 實例
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   /// Storage 實例
   final FirebaseStorage _storage = FirebaseStorage.instance;
+
+  /// Google Sign In 實例
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   // ==================== 認證相關 ====================
 
@@ -42,10 +46,10 @@ class FirebaseService {
   Stream<auth.User?> get authStateChanges => _auth.authStateChanges();
 
   /// Email 登入
-  /// 
+  ///
   /// [email] 電子郵件地址
   /// [password] 密碼
-  /// 
+  ///
   /// 回傳：登入後的用戶物件
   Future<auth.User?> signInWithEmail(String email, String password) async {
     try {
@@ -53,7 +57,22 @@ class FirebaseService {
         email: email,
         password: password,
       );
-      return credential.user;
+
+      final user = credential.user;
+      if (user != null) {
+        // 檢查用戶是否已存在於 Firestore
+        final existingUser = await getUserData(user.uid);
+
+        if (existingUser == null) {
+          // 用戶不存在，建立 Firestore 文檔
+          await createUserDocument(
+            user,
+            displayName: user.displayName,
+          );
+        }
+      }
+
+      return user;
     } on auth.FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     }
@@ -96,7 +115,10 @@ class FirebaseService {
   }
 
   /// 登出
+  ///
+  /// 同時登出 Firebase Auth 和 Google Sign In
   Future<void> signOut() async {
+    await _googleSignIn.signOut();
     await _auth.signOut();
   }
 
@@ -109,13 +131,126 @@ class FirebaseService {
     }
   }
 
+  /// Google 登入
+  ///
+  /// 使用 Google 帳號登入 Firebase
+  /// 如果是新用戶，會自動在 Firestore 建立用戶文檔
+  ///
+  /// 回傳：登入後的用戶物件，若用戶取消登入則回傳 null
+  Future<auth.User?> signInWithGoogle() async {
+    try {
+      // 觸發 Google 登入流程
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      // 用戶取消登入
+      if (googleUser == null) {
+        return null;
+      }
+
+      // 取得認證資訊
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      // 建立 Firebase credential
+      final credential = auth.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 使用 credential 登入 Firebase
+      final userCredential = await _auth.signInWithCredential(credential);
+      final user = userCredential.user;
+
+      if (user != null) {
+        // 檢查用戶是否已存在於 Firestore
+        final existingUser = await getUserData(user.uid);
+
+        if (existingUser == null) {
+          // 新用戶，建立 Firestore 文檔
+          await createUserDocument(
+            user,
+            displayName: user.displayName,
+          );
+        }
+      }
+
+      return user;
+    } on auth.FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      throw '登入失敗：$e';
+    }
+  }
+
+  /// 取得當前用戶已連結的登入方式
+  ///
+  /// 回傳：登入方式 ID 列表（例如：'google.com', 'facebook.com', 'password'）
+  List<String> getLinkedProviders() {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    return user.providerData.map((info) => info.providerId).toList();
+  }
+
+  /// 連結 Google 帳號
+  ///
+  /// 將當前 Email 帳號連結到 Google 帳號
+  /// 連結後可以使用 Google 登入同一個帳號
+  Future<void> linkWithGoogle() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw '用戶未登入';
+      }
+
+      // 觸發 Google 登入流程
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        throw '已取消連結';
+      }
+
+      // 取得認證資訊
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      // 建立 credential
+      final credential = auth.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 連結帳號
+      await user.linkWithCredential(credential);
+    } on auth.FirebaseAuthException catch (e) {
+      if (e.code == 'credential-already-in-use') {
+        throw '此 Google 帳號已連結到其他帳戶';
+      } else if (e.code == 'provider-already-linked') {
+        throw '此帳號已連結 Google';
+      }
+      throw _handleAuthException(e);
+    } catch (e) {
+      if (e is String) rethrow;
+      throw '連結失敗：$e';
+    }
+  }
+
+  /// 連結 Facebook 帳號（預留功能）
+  ///
+  /// 將當前 Email 帳號連結到 Facebook 帳號
+  /// 注意：需要先設定 Facebook 登入套件
+  Future<void> linkWithFacebook() async {
+    // TODO: 實作 Facebook 連結功能
+    // 需要安裝 flutter_facebook_auth 套件
+    throw '暫不支援 Facebook 連結功能';
+  }
+
   /// 處理 Firebase Auth 錯誤
   String _handleAuthException(auth.FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
-        return '找不到此帳號';
       case 'wrong-password':
-        return '密碼錯誤';
+      case 'invalid-credential':
+        return '您輸入的Email或密碼錯誤，請確認後重試。';
       case 'email-already-in-use':
         return '此電子郵件已被使用';
       case 'invalid-email':

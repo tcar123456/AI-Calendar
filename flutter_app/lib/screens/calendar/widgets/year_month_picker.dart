@@ -119,12 +119,12 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(kPrimaryColorValue)
+                          ? Colors.black
                           : Colors.grey[100],
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: isSelected
-                            ? const Color(kPrimaryColorValue)
+                            ? Colors.black
                             : Colors.grey[300]!,
                       ),
                     ),

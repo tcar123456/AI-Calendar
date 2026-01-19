@@ -44,7 +44,7 @@ class _VoiceInputScreenState extends ConsumerState<VoiceInputScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.successMessage!),
-            backgroundColor: const Color(kSuccessColorValue),
+            backgroundColor: Colors.black,
           ),
         );
         ref.read(voiceControllerProvider.notifier).clearMessages();
@@ -61,7 +61,7 @@ class _VoiceInputScreenState extends ConsumerState<VoiceInputScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage!),
-            backgroundColor: const Color(kErrorColorValue),
+            backgroundColor: const Color(0xFF333333),
           ),
         );
         ref.read(voiceControllerProvider.notifier).clearMessages();
@@ -118,18 +118,19 @@ class _VoiceInputScreenState extends ConsumerState<VoiceInputScreen>
   Widget _buildStatusText(VoiceState voiceState) {
     String text;
     Color color;
-    
+
     if (voiceState.isProcessing) {
-      text = 'AI 正在解析您的語音...';
-      color = const Color(kPrimaryColorValue);
+      // 使用階段訊息
+      text = voiceState.stageMessage;
+      color = Colors.black;
     } else if (voiceState.isRecording) {
       text = '正在錄音...';
-      color = const Color(kSuccessColorValue);
+      color = Colors.black;
     } else {
       text = '點擊麥克風開始錄音';
       color = Colors.grey[700]!;
     }
-    
+
     return Text(
       text,
       style: TextStyle(
@@ -177,7 +178,7 @@ class _VoiceInputScreenState extends ConsumerState<VoiceInputScreen>
                   width: 120 + (40 * _pulseController.value),
                   height: 120 + (40 * _pulseController.value),
                   decoration: BoxDecoration(
-                    color: const Color(kSuccessColorValue).withOpacity(
+                    color: Colors.black.withOpacity(
                       0.3 * (1 - _pulseController.value),
                     ),
                     shape: BoxShape.circle,
@@ -185,21 +186,22 @@ class _VoiceInputScreenState extends ConsumerState<VoiceInputScreen>
                 ),
               ],
               
-              // 主按鈕
+              // 主按鈕（白底黑框風格）
               Container(
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: isRecording
-                      ? const Color(kErrorColorValue)
-                      : const Color(kPrimaryColorValue),
+                  color: Colors.white,
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isRecording
+                        ? const Color(0xFF333333)
+                        : Colors.black,
+                    width: 3,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: (isRecording
-                              ? const Color(kErrorColorValue)
-                              : const Color(kPrimaryColorValue))
-                          .withOpacity(0.4),
+                      color: Colors.black.withOpacity(0.15),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -208,7 +210,9 @@ class _VoiceInputScreenState extends ConsumerState<VoiceInputScreen>
                 child: Icon(
                   isRecording ? Icons.stop : Icons.mic,
                   size: 60,
-                  color: Colors.white,
+                  color: isRecording
+                      ? const Color(0xFF333333)
+                      : Colors.black,
                 ),
               ),
             ],
@@ -229,22 +233,64 @@ class _VoiceInputScreenState extends ConsumerState<VoiceInputScreen>
       style: const TextStyle(
         fontSize: 32,
         fontWeight: FontWeight.bold,
-        color: Color(kErrorColorValue),
+        color: const Color(0xFF333333),
       ),
     );
   }
 
   /// 建立處理進度指示器
   Widget _buildProcessingIndicator() {
+    final voiceState = ref.watch(voiceControllerProvider);
+    final progress = voiceState.progress;
+    final percentage = (progress * 100).toInt();
+
     return Column(
       children: [
-        const CircularProgressIndicator(),
+        // 圓形進度指示器
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              width: 80,
+              height: 80,
+              child: CircularProgressIndicator(
+                value: progress > 0 ? progress : null,
+                strokeWidth: 6,
+                backgroundColor: Colors.grey[300],
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.black),
+              ),
+            ),
+            if (progress > 0)
+              Text(
+                '$percentage%',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+          ],
+        ),
         const SizedBox(height: 16),
         Text(
           '這可能需要幾秒鐘...',
           style: TextStyle(
             fontSize: 14,
             color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 16),
+        GestureDetector(
+          onTap: () {
+            ref.read(voiceControllerProvider.notifier).cancelProcessing();
+          },
+          child: const Text(
+            '取消',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.red,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],
@@ -299,7 +345,7 @@ class _VoiceInputScreenState extends ConsumerState<VoiceInputScreen>
           Icon(
             icon,
             size: 20,
-            color: const Color(kPrimaryColorValue),
+            color: Colors.black,
           ),
           const SizedBox(width: 12),
           Expanded(

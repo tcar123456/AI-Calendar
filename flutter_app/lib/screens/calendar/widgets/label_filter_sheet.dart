@@ -121,7 +121,7 @@ class LabelFilterSheet extends ConsumerWidget {
         children: [
           const Icon(
             Icons.filter_list,
-            color: Color(kPrimaryColorValue),
+            color: Colors.black,
             size: 22,
           ),
           const SizedBox(width: 8),
@@ -172,11 +172,11 @@ class LabelFilterSheet extends ConsumerWidget {
                           .setAllLabelsVisibility(selectedCalendar.id, true);
                     },
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(kPrimaryColorValue),
+                foregroundColor: Colors.black,
                 side: BorderSide(
                   color: allVisible
                       ? Colors.grey.shade300
-                      : const Color(kPrimaryColorValue),
+                      : Colors.black,
                 ),
               ),
               child: const Text('顯示全部'),
@@ -264,7 +264,7 @@ class _LabelFilterItem extends StatelessWidget {
               isVisible ? Icons.visibility : Icons.visibility_off,
               size: 20,
               color: isVisible
-                  ? const Color(kPrimaryColorValue)
+                  ? Colors.black
                   : Colors.grey.shade400,
             ),
           ],

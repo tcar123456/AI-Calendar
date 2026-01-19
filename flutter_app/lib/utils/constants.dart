@@ -50,17 +50,26 @@ const int kMaxVoiceFileSize = 10 * 1024 * 1024; // 10 MB
 
 // ==================== UI 相關 ====================
 
-/// 主題色
-const int kPrimaryColorValue = 0xFF6366F1; // Indigo
+/// 主題色（黑白簡約風格）
+const int kPrimaryColorValue = 0xFF000000; // 純黑
+
+/// 次要色
+const int kSecondaryColorValue = 0xFF666666; // 深灰
 
 /// 成功色
-const int kSuccessColorValue = 0xFF10B981; // Green
+const int kSuccessColorValue = 0xFF000000; // 黑色
 
 /// 錯誤色
-const int kErrorColorValue = 0xFFEF4444; // Red
+const int kErrorColorValue = 0xFF333333; // 深灰黑
 
 /// 警告色
-const int kWarningColorValue = 0xFFF59E0B; // Amber
+const int kWarningColorValue = 0xFF666666; // 深灰
+
+/// 邊框/分隔線顏色
+const int kBorderColorValue = 0xFFE5E5E5; // 淺灰
+
+/// 次要背景色
+const int kSecondaryBackgroundValue = 0xFFF5F5F5; // 極淺灰
 
 /// 圓角大小
 const double kBorderRadius = 12.0;

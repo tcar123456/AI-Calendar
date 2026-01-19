@@ -108,7 +108,7 @@ class DayCell extends StatelessWidget {
     // 選中時的背景色
     Color? containerBackgroundColor;
     if (isSelected) {
-      containerBackgroundColor = const Color(kPrimaryColorValue).withOpacity(0.15);
+      containerBackgroundColor = Colors.black.withOpacity(0.15);
     }
     
     // 取得當日的節日列表（根據選擇的地區）
@@ -151,7 +151,7 @@ class DayCell extends StatelessWidget {
                         width: 20,
                         height: 20,
                         decoration: const BoxDecoration(
-                          color: Color(kPrimaryColorValue),
+                          color: Colors.black,
                           shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,

@@ -128,7 +128,7 @@ class HolidayService {
   /// 是否啟用 API 呼叫
   ///
   /// 設為 false 時直接使用靜態資料，適合 API 尚未部署時使用
-  static const bool _enableApiCall = false; // TODO: 部署 API 後改為 true
+  static const bool _enableApiCall = true; // API 已部署，啟用動態節日計算
 
   /// 取得指定年份的節日列表
   ///
@@ -146,6 +146,7 @@ class HolidayService {
     // 2. 檢查 SharedPreferences 快取
     final cachedHolidays = await _loadFromLocalCache(year);
     if (cachedHolidays != null) {
+      debugPrint('從本地快取取得 $year 年節日資料 (${cachedHolidays.length} 個)');
       _memoryCache[year] = cachedHolidays;
       return cachedHolidays;
     }
@@ -153,7 +154,9 @@ class HolidayService {
     // 3. 從 API 取得（若啟用）
     if (_enableApiCall) {
       try {
+        debugPrint('從 API 取得 $year 年節日資料...');
         final holidays = await _fetchFromApi(year, region);
+        debugPrint('成功取得 ${holidays.length} 個節日');
         _memoryCache[year] = holidays;
         await _saveToLocalCache(year, holidays);
         return holidays;
@@ -163,6 +166,7 @@ class HolidayService {
     }
 
     // 4. 回退到靜態資料
+    debugPrint('使用靜態節日資料 ($year 年)');
     return _getStaticHolidays(year);
   }
 

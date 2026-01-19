@@ -39,17 +39,20 @@ final userDataProvider = StreamProvider.family<UserModel?, String>((ref, userId)
 });
 
 /// 當前登入用戶的完整資料 Provider
-/// 
-/// 結合 authStateProvider 和 userDataProvider
+///
+/// 結合 authStateProvider 和 firebaseService
 /// 提供當前登入用戶的完整資料模型
 final currentUserDataProvider = StreamProvider<UserModel?>((ref) {
   final userId = ref.watch(currentUserIdProvider);
-  
+
   if (userId == null) {
     return Stream.value(null);
   }
-  
-  return ref.watch(userDataProvider(userId).stream);
+
+  // 直接使用 firebaseService 監聽用戶資料
+  // 避免通過 family provider 的 .stream 導致登出後再登入時訂閱問題
+  final firebaseService = ref.watch(firebaseServiceProvider);
+  return firebaseService.watchUserData(userId);
 });
 
 /// 認證控制器 State
@@ -95,13 +98,37 @@ class AuthController extends StateNotifier<AuthState> {
   /// Email 登入
   Future<void> signInWithEmail(String email, String password) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    
+
     try {
       await _firebaseService.signInWithEmail(email, password);
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: true,
       );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  /// Google 登入
+  Future<void> signInWithGoogle() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      final user = await _firebaseService.signInWithGoogle();
+
+      if (user != null) {
+        state = state.copyWith(
+          isLoading: false,
+          isAuthenticated: true,
+        );
+      } else {
+        // 用戶取消登入
+        state = state.copyWith(isLoading: false);
+      }
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

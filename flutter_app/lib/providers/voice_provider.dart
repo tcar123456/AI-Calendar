@@ -9,6 +9,15 @@ import '../services/firebase_service.dart';
 import 'auth_provider.dart';
 import 'event_provider.dart';
 
+/// 處理階段枚舉
+enum ProcessingStage {
+  uploading,      // 上傳中
+  transcribing,   // 轉錄中
+  analyzing,      // 分析中
+  creating,       // 建立行程中
+  completed,      // 完成
+}
+
 /// 語音服務 Provider
 final voiceServiceProvider = Provider<VoiceService>((ref) {
   return VoiceService();
@@ -70,21 +79,27 @@ final userVoiceRecordsProvider = StreamProvider<List<VoiceProcessingRecord>>((re
 class VoiceState {
   /// 是否正在錄音
   final bool isRecording;
-  
+
   /// 是否正在處理
   final bool isProcessing;
-  
+
   /// 錯誤訊息
   final String? errorMessage;
-  
+
   /// 成功訊息
   final String? successMessage;
-  
+
   /// 當前處理的語音記錄 ID
   final String? currentRecordId;
-  
+
   /// 錄音時長（秒）
   final int recordingDuration;
+
+  /// 當前處理階段
+  final ProcessingStage? currentStage;
+
+  /// 處理進度（0.0 - 1.0）
+  final double progress;
 
   const VoiceState({
     this.isRecording = false,
@@ -93,7 +108,27 @@ class VoiceState {
     this.successMessage,
     this.currentRecordId,
     this.recordingDuration = 0,
+    this.currentStage,
+    this.progress = 0.0,
   });
+
+  /// 取得當前階段的訊息
+  String get stageMessage {
+    switch (currentStage) {
+      case ProcessingStage.uploading:
+        return '正在上傳語音檔案...';
+      case ProcessingStage.transcribing:
+        return '正在轉錄語音內容...';
+      case ProcessingStage.analyzing:
+        return '正在分析行程資訊...';
+      case ProcessingStage.creating:
+        return '正在建立行程...';
+      case ProcessingStage.completed:
+        return '處理完成！';
+      default:
+        return '處理中...';
+    }
+  }
 
   /// 複製並修改部分屬性
   VoiceState copyWith({
@@ -103,7 +138,10 @@ class VoiceState {
     String? successMessage,
     String? currentRecordId,
     int? recordingDuration,
+    ProcessingStage? currentStage,
+    double? progress,
     bool clearMessages = false,
+    bool clearStage = false,
   }) {
     return VoiceState(
       isRecording: isRecording ?? this.isRecording,
@@ -112,6 +150,8 @@ class VoiceState {
       successMessage: clearMessages ? null : (successMessage ?? this.successMessage),
       currentRecordId: currentRecordId ?? this.currentRecordId,
       recordingDuration: recordingDuration ?? this.recordingDuration,
+      currentStage: clearStage ? null : (currentStage ?? this.currentStage),
+      progress: progress ?? this.progress,
     );
   }
 }
@@ -219,7 +259,7 @@ class VoiceController extends StateNotifier<VoiceState> {
   }
 
   /// 處理語音數據或檔案
-  /// 
+  ///
   /// [filePath] 移動平台的檔案路徑
   /// [audioBytes] Web 平台的音檔數據
   Future<void> _processVoiceData({String? filePath, Uint8List? audioBytes}) async {
@@ -229,7 +269,12 @@ class VoiceController extends StateNotifier<VoiceState> {
       return;
     }
 
-    state = state.copyWith(isProcessing: true);
+    // 開始處理 - 上傳階段
+    state = state.copyWith(
+      isProcessing: true,
+      currentStage: ProcessingStage.uploading,
+      progress: 0.1,
+    );
 
     try {
       // 上傳語音檔案並建立處理記錄
@@ -238,14 +283,28 @@ class VoiceController extends StateNotifier<VoiceState> {
         userId,
         audioBytes: audioBytes,
       );
-      
-      state = state.copyWith(currentRecordId: recordId);
+
+      // 上傳完成，進入轉錄階段
+      state = state.copyWith(
+        currentRecordId: recordId,
+        currentStage: ProcessingStage.transcribing,
+        progress: 0.3,
+      );
 
       // 監聽處理結果
       _processingSubscription = _firebaseService
           .watchVoiceProcessingRecord(recordId)
           .listen((record) async {
         if (record == null) return;
+
+        // 根據 record 狀態更新進度
+        if (record.transcription != null && state.currentStage == ProcessingStage.transcribing) {
+          // 有轉錄結果了，進入分析階段
+          state = state.copyWith(
+            currentStage: ProcessingStage.analyzing,
+            progress: 0.7,
+          );
+        }
 
         if (record.isCompleted() && record.result != null) {
           // 處理成功，建立行程
@@ -256,6 +315,8 @@ class VoiceController extends StateNotifier<VoiceState> {
             isProcessing: false,
             errorMessage: record.errorMessage ?? '語音處理失敗',
             currentRecordId: null,
+            clearStage: true,
+            progress: 0.0,
           );
           _processingSubscription?.cancel();
         }
@@ -264,6 +325,8 @@ class VoiceController extends StateNotifier<VoiceState> {
       state = state.copyWith(
         isProcessing: false,
         errorMessage: '上傳語音失敗：$e',
+        clearStage: true,
+        progress: 0.0,
       );
     }
   }
@@ -273,9 +336,15 @@ class VoiceController extends StateNotifier<VoiceState> {
     final userId = _ref.read(currentUserIdProvider);
     if (userId == null || record.result == null) return;
 
+    // 進入建立行程階段
+    state = state.copyWith(
+      currentStage: ProcessingStage.creating,
+      progress: 0.9,
+    );
+
     try {
       final result = record.result!;
-      
+
       // 建立行程物件
       final event = CalendarEvent(
         id: '', // 會由 Firestore 自動產生
@@ -304,6 +373,8 @@ class VoiceController extends StateNotifier<VoiceState> {
       if (eventId != null) {
         state = state.copyWith(
           isProcessing: false,
+          currentStage: ProcessingStage.completed,
+          progress: 1.0,
           successMessage: '行程「${result.title}」建立成功！',
           currentRecordId: null,
         );
@@ -312,6 +383,8 @@ class VoiceController extends StateNotifier<VoiceState> {
           isProcessing: false,
           errorMessage: '建立行程失敗',
           currentRecordId: null,
+          clearStage: true,
+          progress: 0.0,
         );
       }
 
@@ -321,9 +394,19 @@ class VoiceController extends StateNotifier<VoiceState> {
         isProcessing: false,
         errorMessage: '建立行程失敗：$e',
         currentRecordId: null,
+        clearStage: true,
+        progress: 0.0,
       );
       _processingSubscription?.cancel();
     }
+  }
+
+  /// 取消解析處理
+  void cancelProcessing() {
+    _processingSubscription?.cancel();
+    _processingSubscription = null;
+    // 重置所有狀態，包括階段和進度
+    state = const VoiceState();
   }
 
   /// 清除訊息
