@@ -488,26 +488,37 @@ class FirebaseService {
   }
 
   /// 建立語音處理記錄
-  /// 
+  ///
   /// [userId] 用戶 ID
   /// [audioUrl] 語音檔案 URL
-  /// 
+  /// [calendarId] 目標行事曆 ID（語音建立的行程會放入此行事曆）
+  /// [labels] 行事曆的標籤列表（用於 AI 自動選擇標籤）
+  ///
   /// 回傳：處理記錄 ID
   Future<String> createVoiceProcessingRecord(
     String userId,
-    String audioUrl,
-  ) async {
+    String audioUrl, {
+    String? calendarId,
+    List<Map<String, String>>? labels,
+  }) async {
     final record = VoiceProcessingRecord(
       id: '', // 會由 Firestore 自動產生
       userId: userId,
       audioUrl: audioUrl,
+      calendarId: calendarId,
       status: VoiceProcessingStatus.processing,
       createdAt: DateTime.now(),
     );
 
+    // 轉換為 Firestore 格式並加入 labels
+    final data = record.toFirestore();
+    if (labels != null && labels.isNotEmpty) {
+      data['labels'] = labels;
+    }
+
     final docRef = await _firestore
         .collection(kVoiceProcessingCollection)
-        .add(record.toFirestore());
+        .add(data);
 
     return docRef.id;
   }

@@ -9,7 +9,7 @@ import json
 from openai import OpenAI
 from loguru import logger
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 
 class GPTService:
     """GPT 語意解析服務類別"""
@@ -27,27 +27,69 @@ class GPTService:
         weekdays = ["一", "二", "三", "四", "五", "六", "日"]
         return weekdays[dt.weekday()]
     
-    def parse_event_from_text(self, text: str) -> Dict[str, Any]:
+    def _build_label_prompt(self, labels: Optional[List[Dict[str, str]]]) -> str:
+        """
+        建立標籤推斷的 prompt 片段
+
+        Args:
+            labels: 標籤列表，每個標籤包含 id 和 name
+
+        Returns:
+            標籤推斷規則的 prompt 字串
+        """
+        if not labels or len(labels) == 0:
+            return ""
+
+        prompt = """
+9. **標籤推斷**：
+   根據行程內容，選擇最適合的標籤 ID。可用標籤如下：
+"""
+        for label in labels:
+            label_id = label.get('id', '')
+            label_name = label.get('name', '')
+            prompt += f"   - {label_id}：{label_name}\n"
+
+        prompt += """
+   推斷規則：
+   - 會議、討論、報告、客戶、專案 → 選擇「會議」或「工作」相關標籤
+   - 爸媽、家人、親戚 → 選擇「家庭」相關標籤
+   - 讀書、上課、考試、作業 → 選擇「學習」相關標籤
+   - 健身、跑步、游泳、球類、運動 → 選擇「運動」相關標籤
+   - 看電影、吃飯、玩樂、休息 → 選擇「休閒」相關標籤
+   - 約會、情侶 → 選擇「約會」相關標籤
+   - 出差、旅遊、出國 → 選擇「旅行」相關標籤
+   - 生日、慶祝 → 選擇「個人」或相關標籤
+   - 如果無法確定適合的標籤，labelId 設為 null
+"""
+        return prompt
+
+    def parse_event_from_text(self, text: str, labels: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
         """
         將口語化文字解析為結構化行程資料
-        
+
         Args:
             text: 語音轉換的文字
-        
+            labels: 可選的標籤列表，用於 AI 自動選擇標籤
+
         Returns:
             結構化的行程資料字典
-        
+
         Raises:
             Exception: 解析失敗時拋出例外
         """
         try:
             logger.info(f"開始解析文字：{text}")
-            
+            if labels:
+                logger.info(f"使用標籤列表：{labels}")
+
             # 取得當前日期時間作為參考
             now = datetime.now()
             current_date = now.strftime("%Y-%m-%d")
             current_time = now.strftime("%H:%M")
-            
+
+            # 建立標籤推斷 prompt（如果有提供標籤）
+            label_prompt = self._build_label_prompt(labels)
+
             # 建立系統提示詞
             system_prompt = f"""你是一個專業的行程解析助手。
 用戶會用口語化的方式描述行程，你需要將它轉換成 JSON 格式。
@@ -118,7 +160,7 @@ class GPTService:
    - "跟XX" / "和XX" / "與XX" → 加入 participants
    - 多人用頓號或「和」分隔："跟 Amy 和 Bob" → ["Amy", "Bob"]
    - 若無參與者，participants 設為空陣列 []
-
+{label_prompt}
 === 解析範例 ===
 
 範例 1：
@@ -204,6 +246,7 @@ class GPTService:
 - 確保時間邏輯正確（結束時間不能早於開始時間）
 - 如果資訊不足，使用合理的預設值
 - 標題必須簡潔，不要包含時間地點等冗餘資訊
+- 如果有提供標籤列表，必須根據行程內容推斷 labelId（可為 null）
 """
             
             # 呼叫 GPT API

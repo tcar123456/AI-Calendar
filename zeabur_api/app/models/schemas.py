@@ -6,10 +6,17 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
+class LabelInfo(BaseModel):
+    """標籤資訊"""
+    id: str = Field(..., description="標籤 ID (例如 label_1)")
+    name: str = Field(..., description="標籤名稱 (例如 工作)")
+
+
 class VoiceParseRequest(BaseModel):
     """語音解析請求"""
     audioUrl: str = Field(..., description="語音檔案 URL")
     userId: str = Field(..., description="用戶 ID")
+    labels: Optional[List[LabelInfo]] = Field(None, description="行事曆的標籤列表（用於 AI 自動選擇標籤）")
 
 class EventResult(BaseModel):
     """行程解析結果"""
@@ -31,7 +38,8 @@ class VoiceParseResponse(BaseModel):
     description: Optional[str] = Field(None, description="備註")
     isAllDay: bool = Field(False, description="是否全天")
     participants: List[str] = Field(default_factory=list, description="參與者")
-    
+    labelId: Optional[str] = Field(None, description="AI 推斷的標籤 ID")
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -42,7 +50,8 @@ class VoiceParseResponse(BaseModel):
                 "location": "公司會議室",
                 "description": "記得帶筆電",
                 "isAllDay": False,
-                "participants": []
+                "participants": [],
+                "labelId": "label_6"
             }
         }
 

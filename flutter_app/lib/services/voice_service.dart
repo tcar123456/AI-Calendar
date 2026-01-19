@@ -273,16 +273,20 @@ class VoiceService {
   // ==================== 語音上傳與處理 ====================
 
   /// 上傳語音並觸發 AI 處理
-  /// 
+  ///
   /// [filePath] 語音檔案路徑或數據（Web 平台可能為 null）
   /// [userId] 用戶 ID
   /// [audioBytes] Web 平台的音檔數據（可選）
-  /// 
+  /// [calendarId] 目標行事曆 ID（語音建立的行程會放入此行事曆）
+  /// [labels] 行事曆的標籤列表（用於 AI 自動選擇標籤）
+  ///
   /// 回傳：語音處理記錄 ID
   Future<String> uploadAndProcessVoice(
     String? filePath,
     String userId, {
     Uint8List? audioBytes,
+    String? calendarId,
+    List<Map<String, String>>? labels,
   }) async {
     try {
       String audioUrl;
@@ -351,12 +355,20 @@ class VoiceService {
 
       if (kDebugMode) {
         print('✅ 語音檔案已上傳：$audioUrl');
+        if (calendarId != null) {
+          print('📅 目標行事曆：$calendarId');
+        }
+        if (labels != null && labels.isNotEmpty) {
+          print('🏷️ 標籤數量：${labels.length}');
+        }
       }
 
       // 4. 建立語音處理記錄（會觸發 Cloud Function）
       final recordId = await _firebaseService.createVoiceProcessingRecord(
         userId,
         audioUrl,
+        calendarId: calendarId,
+        labels: labels,
       );
 
       if (kDebugMode) {

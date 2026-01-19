@@ -20,24 +20,27 @@ enum VoiceProcessingStatus {
 class VoiceProcessingResult {
   /// 行程標題
   final String title;
-  
+
   /// 開始時間（ISO 8601 格式）
   final String startTime;
-  
+
   /// 結束時間（ISO 8601 格式）
   final String endTime;
-  
+
   /// 地點
   final String? location;
-  
+
   /// 描述/備註
   final String? description;
-  
+
   /// 是否為全天行程
   final bool isAllDay;
-  
+
   /// 參與者列表
   final List<String> participants;
+
+  /// AI 推斷的標籤 ID
+  final String? labelId;
 
   VoiceProcessingResult({
     required this.title,
@@ -47,6 +50,7 @@ class VoiceProcessingResult {
     this.description,
     this.isAllDay = false,
     this.participants = const [],
+    this.labelId,
   });
 
   /// 從 JSON 建立物件
@@ -59,6 +63,7 @@ class VoiceProcessingResult {
       description: json['description'] as String?,
       isAllDay: json['isAllDay'] as bool? ?? false,
       participants: List<String>.from(json['participants'] ?? []),
+      labelId: json['labelId'] as String?,
     );
   }
 
@@ -72,6 +77,7 @@ class VoiceProcessingResult {
       'description': description,
       'isAllDay': isAllDay,
       'participants': participants,
+      'labelId': labelId,
     };
   }
 }
@@ -81,28 +87,31 @@ class VoiceProcessingResult {
 class VoiceProcessingRecord {
   /// 處理記錄唯一識別碼
   final String id;
-  
+
   /// 用戶 ID
   final String userId;
-  
+
   /// 語音檔案 URL
   final String audioUrl;
-  
+
+  /// 目標行事曆 ID（語音建立的行程會放入此行事曆）
+  final String? calendarId;
+
   /// 處理狀態
   final VoiceProcessingStatus status;
-  
+
   /// 處理結果（僅在成功時有值）
   final VoiceProcessingResult? result;
-  
+
   /// 錯誤訊息（僅在失敗時有值）
   final String? errorMessage;
-  
+
   /// 原始語音轉換的文字
   final String? transcription;
-  
+
   /// 建立時間
   final DateTime createdAt;
-  
+
   /// 最後更新時間
   final DateTime? updatedAt;
 
@@ -110,6 +119,7 @@ class VoiceProcessingRecord {
     required this.id,
     required this.userId,
     required this.audioUrl,
+    this.calendarId,
     required this.status,
     this.result,
     this.errorMessage,
@@ -145,8 +155,9 @@ class VoiceProcessingRecord {
       id: doc.id,
       userId: data['userId'] as String,
       audioUrl: data['audioUrl'] as String,
+      calendarId: data['calendarId'] as String?,
       status: status,
-      result: data['result'] != null 
+      result: data['result'] != null
         ? VoiceProcessingResult.fromJson(data['result'] as Map<String, dynamic>)
         : null,
       errorMessage: data['errorMessage'] as String?,
@@ -180,6 +191,7 @@ class VoiceProcessingRecord {
     return {
       'userId': userId,
       'audioUrl': audioUrl,
+      'calendarId': calendarId,
       'status': statusString,
       'result': result?.toJson(),
       'errorMessage': errorMessage,
@@ -194,6 +206,7 @@ class VoiceProcessingRecord {
     String? id,
     String? userId,
     String? audioUrl,
+    String? calendarId,
     VoiceProcessingStatus? status,
     VoiceProcessingResult? result,
     String? errorMessage,
@@ -205,6 +218,7 @@ class VoiceProcessingRecord {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       audioUrl: audioUrl ?? this.audioUrl,
+      calendarId: calendarId ?? this.calendarId,
       status: status ?? this.status,
       result: result ?? this.result,
       errorMessage: errorMessage ?? this.errorMessage,

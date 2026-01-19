@@ -65,7 +65,12 @@ async def parse_voice(request: VoiceParseRequest):
         
         # 2. 語意解析（GPT）
         logger.info("步驟 2/3：語意解析...")
-        event_data = gpt_service.parse_event_from_text(transcription)
+        # 將標籤列表轉換為字典格式傳給 GPT
+        labels_dict = None
+        if request.labels:
+            labels_dict = [{"id": label.id, "name": label.name} for label in request.labels]
+            logger.info(f"使用標籤列表進行推斷：{labels_dict}")
+        event_data = gpt_service.parse_event_from_text(transcription, labels=labels_dict)
         logger.info(f"✅ 語意解析完成：{event_data}")
         
         # 3. NLP 增強
@@ -82,7 +87,8 @@ async def parse_voice(request: VoiceParseRequest):
             location=event_data.get("location"),
             description=event_data.get("description"),
             isAllDay=event_data.get("isAllDay", False),
-            participants=event_data.get("participants", [])
+            participants=event_data.get("participants", []),
+            labelId=event_data.get("labelId")
         )
         
         logger.info("✅ 語音解析完成")

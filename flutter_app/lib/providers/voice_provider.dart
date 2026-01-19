@@ -6,6 +6,7 @@ import '../models/voice_processing_model.dart';
 import '../services/voice_service.dart';
 import '../services/firebase_service.dart';
 import 'auth_provider.dart';
+import 'calendar_provider.dart';
 
 /// 處理階段枚舉
 enum ProcessingStage {
@@ -267,6 +268,22 @@ class VoiceController extends StateNotifier<VoiceState> {
       return;
     }
 
+    // 取得當前選擇的行事曆（語音建立的行程會放入此行事曆）
+    final selectedCalendar = _ref.read(selectedCalendarProvider);
+    final calendarId = selectedCalendar?.id;
+
+    // 取得當前行事曆的標籤列表（用於 AI 自動選擇標籤）
+    final labels = _ref.read(calendarLabelsProvider);
+    final labelsList = labels.map((label) => {
+      'id': label.id,
+      'name': label.name,
+    }).toList();
+
+    if (kDebugMode) {
+      print('📅 語音處理 - 目標行事曆: ${selectedCalendar?.name ?? "未選擇"} ($calendarId)');
+      print('🏷️ 語音處理 - 標籤數量: ${labelsList.length}');
+    }
+
     // 開始處理 - 上傳階段
     state = state.copyWith(
       isProcessing: true,
@@ -275,11 +292,13 @@ class VoiceController extends StateNotifier<VoiceState> {
     );
 
     try {
-      // 上傳語音檔案並建立處理記錄
+      // 上傳語音檔案並建立處理記錄（傳遞行事曆 ID 和標籤列表）
       final recordId = await _voiceService.uploadAndProcessVoice(
         filePath,
         userId,
         audioBytes: audioBytes,
+        calendarId: calendarId,
+        labels: labelsList,
       );
 
       // 上傳完成，進入轉錄階段
