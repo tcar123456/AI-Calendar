@@ -3,11 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/voice_processing_model.dart';
-import '../models/event_model.dart';
 import '../services/voice_service.dart';
 import '../services/firebase_service.dart';
 import 'auth_provider.dart';
-import 'event_provider.dart';
 
 /// 處理階段枚舉
 enum ProcessingStage {
@@ -307,8 +305,8 @@ class VoiceController extends StateNotifier<VoiceState> {
         }
 
         if (record.isCompleted() && record.result != null) {
-          // 處理成功，建立行程
-          await _createEventFromVoiceResult(record);
+          // 處理成功，Cloud Function 已建立行程，這裡只需更新狀態
+          _onVoiceProcessingCompleted(record);
         } else if (record.isFailed()) {
           // 處理失敗
           state = state.copyWith(
@@ -331,74 +329,24 @@ class VoiceController extends StateNotifier<VoiceState> {
     }
   }
 
-  /// 從語音處理結果建立行程
-  Future<void> _createEventFromVoiceResult(VoiceProcessingRecord record) async {
-    final userId = _ref.read(currentUserIdProvider);
-    if (userId == null || record.result == null) return;
+  /// 語音處理完成時的處理
+  ///
+  /// 注意：行程已由 Cloud Function 建立，這裡只需更新 UI 狀態
+  void _onVoiceProcessingCompleted(VoiceProcessingRecord record) {
+    if (record.result == null) return;
 
-    // 進入建立行程階段
+    final result = record.result!;
+
+    // 更新狀態為完成
     state = state.copyWith(
-      currentStage: ProcessingStage.creating,
-      progress: 0.9,
+      isProcessing: false,
+      currentStage: ProcessingStage.completed,
+      progress: 1.0,
+      successMessage: '行程「${result.title}」建立成功！',
+      currentRecordId: null,
     );
 
-    try {
-      final result = record.result!;
-
-      // 建立行程物件
-      final event = CalendarEvent(
-        id: '', // 會由 Firestore 自動產生
-        userId: userId,
-        title: result.title,
-        startTime: DateTime.parse(result.startTime),
-        endTime: DateTime.parse(result.endTime),
-        location: result.location,
-        description: result.description,
-        participants: result.participants,
-        reminderMinutes: 15,
-        isAllDay: result.isAllDay,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        metadata: EventMetadata(
-          createdBy: 'voice',
-          originalVoiceText: record.transcription,
-          voiceFileUrl: record.audioUrl,
-        ),
-      );
-
-      // 使用 EventController 建立行程
-      final eventController = _ref.read(eventControllerProvider.notifier);
-      final eventId = await eventController.createEvent(event);
-
-      if (eventId != null) {
-        state = state.copyWith(
-          isProcessing: false,
-          currentStage: ProcessingStage.completed,
-          progress: 1.0,
-          successMessage: '行程「${result.title}」建立成功！',
-          currentRecordId: null,
-        );
-      } else {
-        state = state.copyWith(
-          isProcessing: false,
-          errorMessage: '建立行程失敗',
-          currentRecordId: null,
-          clearStage: true,
-          progress: 0.0,
-        );
-      }
-
-      _processingSubscription?.cancel();
-    } catch (e) {
-      state = state.copyWith(
-        isProcessing: false,
-        errorMessage: '建立行程失敗：$e',
-        currentRecordId: null,
-        clearStage: true,
-        progress: 0.0,
-      );
-      _processingSubscription?.cancel();
-    }
+    _processingSubscription?.cancel();
   }
 
   /// 取消解析處理
