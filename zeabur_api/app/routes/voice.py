@@ -50,28 +50,45 @@ async def parse_voice(request: VoiceParseRequest):
     """
     try:
         logger.info(f"收到語音解析請求 - 用戶ID: {request.userId}")
-        
+
+        # 記錄收到的標籤資訊（用於調試）
+        if request.labels is not None:
+            logger.info(f"收到標籤列表：共 {len(request.labels)} 個標籤")
+            for label in request.labels:
+                logger.info(f"  - {label.id}: {label.name}")
+        else:
+            logger.warning("未收到標籤列表（labels 為 None）")
+
         # 1. 語音轉文字（Whisper）
         logger.info("步驟 1/3：語音辨識...")
         transcription = await whisper_service.transcribe_from_url(request.audioUrl)
-        
+
         if not transcription or not transcription.strip():
             raise HTTPException(
                 status_code=400,
                 detail="語音辨識失敗：無法識別語音內容"
             )
-        
+
         logger.info(f"✅ 語音辨識完成：{transcription}")
-        
+
         # 2. 語意解析（GPT）
         logger.info("步驟 2/3：語意解析...")
         # 將標籤列表轉換為字典格式傳給 GPT
         labels_dict = None
-        if request.labels:
+        if request.labels and len(request.labels) > 0:
             labels_dict = [{"id": label.id, "name": label.name} for label in request.labels]
-            logger.info(f"使用標籤列表進行推斷：{labels_dict}")
+            logger.info(f"傳遞 {len(labels_dict)} 個標籤給 GPT 進行推斷")
+        else:
+            logger.warning("標籤列表為空，GPT 將無法推斷標籤")
         event_data = gpt_service.parse_event_from_text(transcription, labels=labels_dict)
         logger.info(f"✅ 語意解析完成：{event_data}")
+
+        # 記錄 GPT 推斷的標籤結果
+        inferred_label_id = event_data.get("labelId")
+        if inferred_label_id:
+            logger.info(f"🏷️ GPT 推斷標籤：{inferred_label_id}")
+        else:
+            logger.warning("⚠️ GPT 未推斷出標籤（labelId 為 null）")
         
         # 3. NLP 增強
         logger.info("步驟 3/3：NLP 增強...")

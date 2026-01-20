@@ -41,10 +41,11 @@ class GPTService:
             return ""
 
         prompt = """
-9. **標籤推斷**（重要！必須輸出 labelId 欄位）：
-   根據行程內容，從以下標籤列表中選擇最適合的標籤 ID，輸出到 JSON 的 labelId 欄位：
+9. **標籤推斷**（極為重要！必須認真推斷並輸出 labelId 欄位）：
+   你必須根據行程內容，從以下標籤列表中選擇最適合的標籤 ID。
+   這是用戶行程管理的重要功能，請務必認真推斷！
 
-   可用標籤：
+   可用標籤列表：
 """
         for label in labels:
             label_id = label.get('id', '')
@@ -52,18 +53,43 @@ class GPTService:
             prompt += f"   - {label_id}：{label_name}\n"
 
         prompt += """
-   推斷規則（根據標籤名稱匹配）：
-   - 開會、會議、討論、報告、客戶、專案、工作 → 選擇名稱含「工作」或「會議」的標籤
-   - 爸媽、家人、親戚、家裡 → 選擇名稱含「家庭」的標籤
-   - 讀書、上課、考試、作業、學習 → 選擇名稱含「學習」的標籤
-   - 健身、跑步、游泳、球類、運動 → 選擇名稱含「運動」的標籤
-   - 看電影、吃飯、玩樂、休息、娛樂 → 選擇名稱含「休閒」的標籤
-   - 約會、情侶、男女朋友 → 選擇名稱含「約會」的標籤
-   - 出差、旅遊、出國、旅行 → 選擇名稱含「旅行」的標籤
-   - 生日、慶祝、紀念日 → 選擇名稱含「個人」的標籤
-   - 如果找不到匹配的標籤，labelId 設為 null
+   標籤匹配規則（請嚴格遵守）：
 
-   注意：labelId 必須是上面列表中的 ID（如 label_1、label_6 等），不能自己編造！
+   【工作/會議類】→ 優先選擇「會議」標籤，其次選「工作」標籤
+   關鍵字：開會、會議、討論、報告、客戶、專案、工作、簡報、提案、review、sync、面試、培訓
+
+   【家庭類】→ 選擇「家庭」標籤
+   關鍵字：爸媽、媽媽、爸爸、家人、親戚、家裡、家庭聚會、探親
+
+   【學習類】→ 選擇「學習」標籤
+   關鍵字：讀書、上課、考試、作業、學習、補習、培訓課程、講座
+
+   【運動類】→ 選擇「運動」標籤
+   關鍵字：健身、跑步、游泳、球類、運動、瑜珈、籃球、羽球、網球、登山、健走
+
+   【休閒類】→ 選擇「休閒」標籤
+   關鍵字：看電影、吃飯、聚餐、玩樂、休息、娛樂、逛街、購物、下午茶、喝咖啡
+
+   【約會類】→ 選擇「約會」標籤
+   關鍵字：約會、情侶、男女朋友、老公、老婆、另一半
+
+   【旅行類】→ 選擇「旅行」標籤
+   關鍵字：出差、旅遊、出國、旅行、飛機、機場、住宿、訂房
+
+   【個人類】→ 選擇「個人」標籤
+   關鍵字：生日、慶祝、紀念日、體檢、看醫生、牙醫、美容、美髮
+
+   【重要/緊急類】→ 選擇「重要」標籤
+   關鍵字：重要、緊急、截止日、deadline、必須、一定要
+
+   【社交類】→ 選擇「社交」標籤
+   關鍵字：朋友、同學、聚會、派對、party、慶功、歡送、歡迎
+
+   ⚠️ 重要規則：
+   1. 只要行程內容包含上述任何關鍵字，就必須選擇對應的標籤
+   2. 如果同時符合多個類別，選擇最主要的那個（例如「跟同事開會」選「會議」而非「社交」）
+   3. labelId 必須是上面列表中的 ID（如 label_1、label_6 等），絕對不能自己編造
+   4. 只有在完全無法判斷類別時，才將 labelId 設為 null
 """
         return prompt
 
@@ -83,8 +109,12 @@ class GPTService:
         """
         try:
             logger.info(f"開始解析文字：{text}")
-            if labels:
-                logger.info(f"使用標籤列表：{labels}")
+            if labels and len(labels) > 0:
+                logger.info(f"使用標籤列表（共 {len(labels)} 個）：")
+                for label in labels:
+                    logger.info(f"  - {label.get('id')}: {label.get('name')}")
+            else:
+                logger.warning("未提供標籤列表，將無法推斷 labelId")
 
             # 取得當前日期時間作為參考
             now = datetime.now()
@@ -256,7 +286,10 @@ class GPTService:
 - 確保時間邏輯正確（結束時間不能早於開始時間）
 - 如果資訊不足，使用合理的預設值
 - 標題必須簡潔，不要包含時間地點等冗餘資訊
-- **labelId 欄位必須輸出**：如果有提供標籤列表，根據行程內容選擇適合的標籤 ID；如果沒有標籤列表或無法確定，設為 null
+- **labelId 欄位極為重要**：
+  * 如果有提供標籤列表，你必須根據行程內容認真推斷最適合的標籤 ID
+  * 「開會」相關內容 → 必須選擇「會議」或「工作」標籤
+  * 只有在完全無法判斷時才設為 null
 - JSON 輸出必須包含以下所有欄位：title, startTime, endTime, location, description, isAllDay, participants, labelId
 """
             
@@ -291,6 +324,13 @@ class GPTService:
             except ValueError as e:
                 raise ValueError(f"時間格式錯誤：{e}")
             
+            # 記錄推斷的 labelId
+            inferred_label = result.get("labelId")
+            if inferred_label:
+                logger.info(f"🏷️ GPT 推斷的標籤 ID：{inferred_label}")
+            else:
+                logger.warning("⚠️ GPT 未推斷出標籤（labelId 為 null 或未設置）")
+
             logger.info(f"解析完成：{result}")
             return result
             
