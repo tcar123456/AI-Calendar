@@ -41,8 +41,10 @@ class GPTService:
             return ""
 
         prompt = """
-9. **標籤推斷**：
-   根據行程內容，選擇最適合的標籤 ID。可用標籤如下：
+9. **標籤推斷**（重要！必須輸出 labelId 欄位）：
+   根據行程內容，從以下標籤列表中選擇最適合的標籤 ID，輸出到 JSON 的 labelId 欄位：
+
+   可用標籤：
 """
         for label in labels:
             label_id = label.get('id', '')
@@ -50,16 +52,18 @@ class GPTService:
             prompt += f"   - {label_id}：{label_name}\n"
 
         prompt += """
-   推斷規則：
-   - 會議、討論、報告、客戶、專案 → 選擇「會議」或「工作」相關標籤
-   - 爸媽、家人、親戚 → 選擇「家庭」相關標籤
-   - 讀書、上課、考試、作業 → 選擇「學習」相關標籤
-   - 健身、跑步、游泳、球類、運動 → 選擇「運動」相關標籤
-   - 看電影、吃飯、玩樂、休息 → 選擇「休閒」相關標籤
-   - 約會、情侶 → 選擇「約會」相關標籤
-   - 出差、旅遊、出國 → 選擇「旅行」相關標籤
-   - 生日、慶祝 → 選擇「個人」或相關標籤
-   - 如果無法確定適合的標籤，labelId 設為 null
+   推斷規則（根據標籤名稱匹配）：
+   - 開會、會議、討論、報告、客戶、專案、工作 → 選擇名稱含「工作」或「會議」的標籤
+   - 爸媽、家人、親戚、家裡 → 選擇名稱含「家庭」的標籤
+   - 讀書、上課、考試、作業、學習 → 選擇名稱含「學習」的標籤
+   - 健身、跑步、游泳、球類、運動 → 選擇名稱含「運動」的標籤
+   - 看電影、吃飯、玩樂、休息、娛樂 → 選擇名稱含「休閒」的標籤
+   - 約會、情侶、男女朋友 → 選擇名稱含「約會」的標籤
+   - 出差、旅遊、出國、旅行 → 選擇名稱含「旅行」的標籤
+   - 生日、慶祝、紀念日 → 選擇名稱含「個人」的標籤
+   - 如果找不到匹配的標籤，labelId 設為 null
+
+   注意：labelId 必須是上面列表中的 ID（如 label_1、label_6 等），不能自己編造！
 """
         return prompt
 
@@ -163,7 +167,7 @@ class GPTService:
 {label_prompt}
 === 解析範例 ===
 
-範例 1：
+範例 1（休閒活動 → 休閒標籤）：
 輸入："明天下午5點去餐廳吃飯"
 輸出：
 {{
@@ -173,10 +177,11 @@ class GPTService:
   "location": "餐廳",
   "description": "",
   "isAllDay": false,
-  "participants": []
+  "participants": [],
+  "labelId": "label_9"
 }}
 
-範例 2：
+範例 2（工作相關 → 工作標籤）：
 輸入："下週三早上十點在咖啡廳跟 Amy 討論專案"
 輸出：
 {{
@@ -186,10 +191,11 @@ class GPTService:
   "location": "咖啡廳",
   "description": "",
   "isAllDay": false,
-  "participants": ["Amy"]
+  "participants": ["Amy"],
+  "labelId": "label_1"
 }}
 
-範例 3：
+範例 3（出差 → 旅行標籤）：
 輸入："後天整天要出差，記得帶筆電"
 輸出：
 {{
@@ -199,10 +205,11 @@ class GPTService:
   "location": "",
   "description": "記得帶筆電",
   "isAllDay": true,
-  "participants": []
+  "participants": [],
+  "labelId": "label_11"
 }}
 
-範例 4：
+範例 4（娛樂 → 休閒標籤）：
 輸入："禮拜五晚上7點半和小明去看電影"
 輸出：
 {{
@@ -212,10 +219,11 @@ class GPTService:
   "location": "",
   "description": "",
   "isAllDay": false,
-  "participants": ["小明"]
+  "participants": ["小明"],
+  "labelId": "label_9"
 }}
 
-範例 5：
+範例 5（開會 → 會議標籤）：
 輸入："1月30號下午三點到五點在會議室開會"
 輸出：
 {{
@@ -225,10 +233,11 @@ class GPTService:
   "location": "會議室",
   "description": "",
   "isAllDay": false,
-  "participants": []
+  "participants": [],
+  "labelId": "label_6"
 }}
 
-範例 6：
+範例 6（無標籤列表時 → null）：
 輸入："今天中午吃飯"
 輸出：
 {{
@@ -238,15 +247,17 @@ class GPTService:
   "location": "",
   "description": "",
   "isAllDay": false,
-  "participants": []
+  "participants": [],
+  "labelId": null
 }}
 
 === 重要提醒 ===
-- 只輸出 JSON 格式，不要有任何其他文字或解釋
+- 只輸出純 JSON 格式，不要有任何其他文字、解釋或註解
 - 確保時間邏輯正確（結束時間不能早於開始時間）
 - 如果資訊不足，使用合理的預設值
 - 標題必須簡潔，不要包含時間地點等冗餘資訊
-- 如果有提供標籤列表，必須根據行程內容推斷 labelId（可為 null）
+- **labelId 欄位必須輸出**：如果有提供標籤列表，根據行程內容選擇適合的標籤 ID；如果沒有標籤列表或無法確定，設為 null
+- JSON 輸出必須包含以下所有欄位：title, startTime, endTime, location, description, isAllDay, participants, labelId
 """
             
             # 呼叫 GPT API

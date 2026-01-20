@@ -7,6 +7,7 @@ import '../../../models/holiday_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../utils/constants.dart';
+import '../utils/calendar_utils.dart';
 
 /// 行程檢視模式
 /// 
@@ -609,8 +610,8 @@ class _CardModeEventItem extends StatelessWidget {
         return label.color;
       }
     }
-    // 預設使用主色
-    return Colors.black;
+    // 備用邏輯：根據事件 ID 的 hashCode 選擇顏色
+    return CalendarUtils.eventColors[event.id.hashCode.abs() % CalendarUtils.eventColors.length];
   }
 
   /// 建立時間顯示（時間範圍）
@@ -1179,8 +1180,8 @@ class _TimelineView extends StatelessWidget {
         return label.color;
       }
     }
-    // 預設使用主色
-    return Colors.black;
+    // 備用邏輯：根據事件 ID 的 hashCode 選擇顏色
+    return CalendarUtils.eventColors[event.id.hashCode.abs() % CalendarUtils.eventColors.length];
   }
 }
 
