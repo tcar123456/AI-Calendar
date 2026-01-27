@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/event_model.dart';
 import '../utils/calendar_utils.dart';
+import 'day_cell.dart' show EventDragData;
 
 /// 跨日事件橫條元件
 /// 
@@ -37,6 +38,12 @@ class MultiDayEventBar extends StatelessWidget {
   /// 點擊日期的回調（用於開啟日期列表）
   final ValueChanged<DateTime>? onDaySelected;
 
+  /// 拖曳開始回調
+  final VoidCallback? onDragStarted;
+
+  /// 拖曳結束回調
+  final VoidCallback? onDragEnded;
+
   const MultiDayEventBar({
     super.key,
     required this.week,
@@ -47,6 +54,8 @@ class MultiDayEventBar extends StatelessWidget {
     required this.eventItemGap,
     required this.rowAllocation,
     this.onDaySelected,
+    this.onDragStarted,
+    this.onDragEnded,
   });
 
   @override
@@ -117,47 +126,121 @@ class MultiDayEventBar extends StatelessWidget {
     // 只在開始的那一週顯示標題
     final showTitle = isStartInThisWeek;
     
+    // 計算拖曳來源日期（事件的開始日期）
+    final sourceDateForDrag = DateTime(
+      event.startTime.year,
+      event.startTime.month,
+      event.startTime.day,
+    );
+
+    // 跨日行程條的顯示內容
+    Widget barContent = Container(
+      decoration: BoxDecoration(
+        color: eventColor,
+        borderRadius: borderRadius,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      // 文字置中顯示
+      alignment: Alignment.center,
+      child: showTitle
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 重複行程標記
+                if (event.isRecurring)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 3),
+                    child: Icon(
+                      Icons.repeat,
+                      size: 10,
+                      color: Colors.white,
+                    ),
+                  ),
+                Flexible(
+                  child: Text(
+                    event.title,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            )
+          : null,
+    );
+
     return Positioned(
       left: left,
       top: top,
       width: width,
       height: eventItemHeight - 1, // 減1留出間距
-      child: GestureDetector(
-        // 點擊時根據點擊位置計算對應的日期，然後開啟該日期的列表
-        onTapUp: (details) {
-          if (onDaySelected == null) return;
-          
-          // 根據點擊位置計算對應的日期列索引
-          final tapX = details.localPosition.dx;
-          final columnIndex = (tapX / cellWidth).floor();
-          final actualColumnIndex = (startCol + columnIndex).clamp(0, 6);
-          final tappedDay = week[actualColumnIndex];
-          
-          onDaySelected!(tappedDay);
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: eventColor,
-            borderRadius: borderRadius,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          // 文字置中顯示
-          alignment: Alignment.center,
-          child: showTitle
-              ? Text(
-                  event.title,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                    height: 1.2,
+      child: LongPressDraggable<EventDragData>(
+        data: EventDragData(event: event, sourceDate: sourceDateForDrag),
+        delay: const Duration(milliseconds: 300),
+        hapticFeedbackOnStart: true,
+        onDragStarted: onDragStarted,
+        onDragEnd: (_) => onDragEnded?.call(),
+        // 拖曳時顯示的預覽
+        feedback: Material(
+          elevation: 4,
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            width: 140,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: eventColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (event.isRecurring)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 3),
+                    child: Icon(Icons.repeat, size: 10, color: Colors.white),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  // 文字置中對齊
-                  textAlign: TextAlign.center,
-                )
-              : null,
+                Flexible(
+                  child: Text(
+                    event.title,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 拖曳時原位置顯示的佔位符
+        childWhenDragging: Opacity(
+          opacity: 0.3,
+          child: barContent,
+        ),
+        child: GestureDetector(
+          // 點擊時根據點擊位置計算對應的日期，然後開啟該日期的列表
+          onTapUp: (details) {
+            if (onDaySelected == null) return;
+
+            // 根據點擊位置計算對應的日期列索引
+            final tapX = details.localPosition.dx;
+            final columnIndex = (tapX / cellWidth).floor();
+            final actualColumnIndex = (startCol + columnIndex).clamp(0, 6);
+            final tappedDay = week[actualColumnIndex];
+
+            onDaySelected!(tappedDay);
+          },
+          child: barContent,
         ),
       ),
     );

@@ -333,12 +333,28 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // 標題
-                    Text(
-                      event.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            event.title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        // 重複行程標記
+                        if (event.isRecurring)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: Icon(
+                              Icons.repeat,
+                              size: 14,
+                              color: cardColor,
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 2),
                     // 時間

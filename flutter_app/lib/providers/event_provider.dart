@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/event_model.dart';
+import '../models/recurrence_rule.dart';
 import '../services/firebase_service.dart';
+import '../services/recurrence_service.dart';
 import 'auth_provider.dart';
 import 'calendar_provider.dart';
 
@@ -24,6 +27,7 @@ final allEventsProvider = StreamProvider<List<CalendarEvent>>((ref) {
 /// 會根據 selectedCalendarProvider 過濾行程
 ///
 /// 過濾邏輯：
+/// - 總覽模式 → 顯示所有行事曆的行程
 /// - 選中行事曆 A → 只顯示 calendarId == A 的行程
 /// - 選中行事曆 B → 只顯示 calendarId == B 的行程
 /// - 舊行程（無 calendarId）→ 顯示在第一個行事曆中
@@ -33,9 +37,20 @@ final eventsProvider = Provider<AsyncValue<List<CalendarEvent>>>((ref) {
   final selectedCalendar = ref.watch(selectedCalendarProvider);
   final calendars = ref.watch(calendarsProvider);
   final hiddenLabelIds = ref.watch(hiddenLabelIdsProvider);
+  final isOverviewMode = ref.watch(isOverviewModeProvider);
 
   return allEvents.when(
     data: (events) {
+      // 總覽模式：顯示所有行程（不依行事曆過濾）
+      if (isOverviewMode) {
+        // 標籤過濾：根據 hiddenLabelIds 過濾掉對應標籤的行程
+        final filteredByLabel = events.where((event) {
+          if (event.labelId == null) return true;
+          return !hiddenLabelIds.contains(event.labelId);
+        }).toList();
+        return AsyncValue.data(filteredByLabel);
+      }
+
       // 如果沒有選擇的行事曆，返回空列表
       if (selectedCalendar == null) {
         return const AsyncValue.data([]);
@@ -254,6 +269,262 @@ class EventController extends StateNotifier<EventState> {
   /// 清除訊息
   void clearMessages() {
     state = state.copyWith(clearMessages: true);
+  }
+
+  // ==================== 重複行程相關方法 ====================
+
+  /// 建立重複行程（主行程 + 實例）
+  ///
+  /// [event] 行程資料（會被設為主行程）
+  /// [rule] 重複規則
+  ///
+  /// 回傳：主行程的 ID（失敗時回傳 null）
+  Future<String?> createRecurringEvent(
+    CalendarEvent event,
+    RecurrenceRule rule,
+  ) async {
+    state = state.copyWith(isLoading: true, clearMessages: true);
+
+    try {
+      // 建立主行程
+      final masterEvent = event.copyWith(
+        isMasterEvent: true,
+        recurrenceRule: rule,
+        isException: false,
+      );
+
+      // 使用 RecurrenceService 展開實例
+      final recurrenceService = RecurrenceService();
+      final instances = recurrenceService.expandInstances(masterEvent);
+
+      // 批次建立到 Firestore
+      final masterId = await _firebaseService.createRecurringEvents(
+        masterEvent,
+        instances,
+      );
+
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: '重複行程建立成功（共 ${instances.length + 1} 個）',
+      );
+
+      return masterId;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: '建立重複行程失敗：$e',
+      );
+      return null;
+    }
+  }
+
+  /// 編輯重複行程
+  ///
+  /// [eventId] 要編輯的行程 ID
+  /// [updatedEvent] 更新後的行程資料
+  /// [choice] 編輯選項（僅此行程/此行程及之後/所有行程）
+  ///
+  /// 回傳：是否成功
+  Future<bool> editRecurringEvent(
+    String eventId,
+    CalendarEvent updatedEvent,
+    RecurrenceEditChoice choice,
+  ) async {
+    state = state.copyWith(isLoading: true, clearMessages: true);
+
+    try {
+      switch (choice) {
+        case RecurrenceEditChoice.thisOnly:
+          // 僅此行程：標記為例外，更新內容
+          final exceptionEvent = updatedEvent.copyWith(
+            isException: true,
+            updatedAt: DateTime.now(),
+          );
+          await _firebaseService.updateEvent(eventId, exceptionEvent);
+          break;
+
+        case RecurrenceEditChoice.thisAndFollowing:
+          // 此行程及之後：較複雜，需要分割系列
+          // 1. 取得原主行程
+          final originalMasterId = updatedEvent.masterEventId;
+          if (originalMasterId == null) {
+            throw Exception('找不到主行程');
+          }
+
+          final originalMaster = await _firebaseService.getMasterEvent(originalMasterId);
+          if (originalMaster == null) {
+            throw Exception('主行程不存在');
+          }
+
+          // 2. 更新原主行程的結束日期為此行程的前一天
+          final newEndDate = updatedEvent.originalDate?.subtract(const Duration(days: 1)) ??
+              updatedEvent.startTime.subtract(const Duration(days: 1));
+
+          if (originalMaster.recurrenceRule != null) {
+            final updatedRule = originalMaster.recurrenceRule!.copyWith(
+              endDate: newEndDate,
+            );
+            final updatedMaster = originalMaster.copyWith(
+              recurrenceRule: updatedRule,
+              updatedAt: DateTime.now(),
+            );
+            await _firebaseService.updateEvent(originalMasterId, updatedMaster);
+          }
+
+          // 3. 刪除此日期及之後的實例
+          final fromDate = updatedEvent.originalDate ?? updatedEvent.startTime;
+          await _firebaseService.deleteInstancesFromDate(originalMasterId, fromDate);
+
+          // 4. 建立新的主行程和實例（如果還有重複規則）
+          if (originalMaster.recurrenceRule != null) {
+            final newMaster = updatedEvent.copyWith(
+              id: '',
+              isMasterEvent: true,
+              recurrenceRule: originalMaster.recurrenceRule,
+              masterEventId: null,
+              originalDate: null,
+              isException: false,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+
+            final recurrenceService = RecurrenceService();
+            final newInstances = recurrenceService.expandInstances(newMaster);
+            await _firebaseService.createRecurringEvents(newMaster, newInstances);
+          }
+          break;
+
+        case RecurrenceEditChoice.all:
+          // 所有行程：更新主行程，同步更新所有非例外實例
+          final masterId = updatedEvent.isMasterEvent
+              ? updatedEvent.id
+              : updatedEvent.masterEventId;
+
+          if (masterId == null) {
+            throw Exception('找不到主行程');
+          }
+
+          // 準備要更新的欄位（DateTime 轉換為 Timestamp）
+          final updates = {
+            'title': updatedEvent.title,
+            'location': updatedEvent.location,
+            'description': updatedEvent.description,
+            'reminderMinutes': updatedEvent.reminderMinutes,
+            'isAllDay': updatedEvent.isAllDay,
+            'labelId': updatedEvent.labelId,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          };
+
+          await _firebaseService.updateRecurrenceSeries(masterId, updates);
+          break;
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: '行程更新成功',
+      );
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: '更新行程失敗：$e',
+      );
+      return false;
+    }
+  }
+
+  /// 刪除重複行程
+  ///
+  /// [event] 要刪除的行程
+  /// [choice] 刪除選項（僅此行程/此行程及之後/所有行程）
+  ///
+  /// 回傳：是否成功
+  Future<bool> deleteRecurringEvent(
+    CalendarEvent event,
+    RecurrenceDeleteChoice choice,
+  ) async {
+    state = state.copyWith(isLoading: true, clearMessages: true);
+
+    try {
+      switch (choice) {
+        case RecurrenceDeleteChoice.thisOnly:
+          // 僅此行程：直接刪除此實例
+          await _firebaseService.deleteEvent(event.id);
+          break;
+
+        case RecurrenceDeleteChoice.thisAndFollowing:
+          // 此行程及之後：更新主行程結束日期，刪除之後的實例
+          final masterId = event.isMasterEvent ? event.id : event.masterEventId;
+          if (masterId == null) {
+            throw Exception('找不到主行程');
+          }
+
+          // 取得主行程
+          final master = await _firebaseService.getMasterEvent(masterId);
+          if (master == null) {
+            throw Exception('主行程不存在');
+          }
+
+          // 計算要刪除的起始日期（只取日期部分）
+          final eventDate = event.originalDate ?? event.startTime;
+          final fromDate = DateTime(eventDate.year, eventDate.month, eventDate.day);
+
+          // 計算新的結束日期（此行程的前一天）
+          final newEndDate = fromDate.subtract(const Duration(days: 1));
+
+          // 取主行程開始日期（只取日期部分）用於比較
+          final masterStartDate = DateTime(
+            master.startTime.year,
+            master.startTime.month,
+            master.startTime.day,
+          );
+
+          // 如果新結束日期早於主行程開始日期，則刪除整個系列
+          if (newEndDate.isBefore(masterStartDate)) {
+            await _firebaseService.deleteRecurrenceSeries(masterId);
+          } else {
+            // 更新主行程的重複規則結束日期
+            if (master.recurrenceRule != null) {
+              final updatedRule = master.recurrenceRule!.copyWith(
+                endDate: newEndDate,
+              );
+              final updatedMaster = master.copyWith(
+                recurrenceRule: updatedRule,
+                updatedAt: DateTime.now(),
+              );
+              await _firebaseService.updateEvent(masterId, updatedMaster);
+            }
+
+            // 刪除此日期及之後的實例
+            await _firebaseService.deleteInstancesFromDate(masterId, fromDate);
+          }
+          break;
+
+        case RecurrenceDeleteChoice.all:
+          // 所有行程：刪除主行程和所有實例
+          final masterId = event.isMasterEvent ? event.id : event.masterEventId;
+          if (masterId == null) {
+            throw Exception('找不到主行程');
+          }
+
+          await _firebaseService.deleteRecurrenceSeries(masterId);
+          break;
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: '行程刪除成功',
+      );
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: '刪除行程失敗：$e',
+      );
+      return false;
+    }
   }
 }
 

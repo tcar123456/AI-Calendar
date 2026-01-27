@@ -19,6 +19,24 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "masterEventId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "originalDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "calendarId",
           "order": "ASCENDING"
         },

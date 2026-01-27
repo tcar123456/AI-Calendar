@@ -44,38 +44,43 @@ class AppBottomNav extends ConsumerWidget {
         child: SizedBox(
           height: 70,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               // 第一個位置：行事曆
-              _buildNavItem(
-                icon: Icons.calendar_today,
-                label: '行事曆',
-                index: 0,
+              Expanded(
+                child: _buildNavItem(
+                  icon: Icons.calendar_today,
+                  label: '行事曆',
+                  index: 0,
+                ),
               ),
-              
               // 第二個位置：通知功能
-              _buildNavItem(
-                icon: Icons.notifications_outlined,
-                label: '通知',
-                index: 1,
-                showBadge: hasUnreadNotification,
+              Expanded(
+                child: _buildNavItem(
+                  icon: Icons.notifications_outlined,
+                  label: '通知',
+                  index: 1,
+                  showBadge: hasUnreadNotification,
+                ),
               ),
-              
-              // 第三個位置：麥克風按鈕
-              _buildMicButton(),
-              
+              // 第三個位置：麥克風按鈕（中央）
+              Expanded(
+                child: _buildMicButton(),
+              ),
               // 第四個位置：備忘錄功能
-              _buildNavItem(
-                icon: Icons.note_alt_outlined,
-                label: '備忘錄',
-                index: 3,
+              Expanded(
+                child: _buildNavItem(
+                  icon: Icons.note_alt_outlined,
+                  label: '備忘錄',
+                  index: 3,
+                ),
               ),
-              
               // 第五個位置：個人資料
-              _buildNavItem(
-                icon: Icons.person_outline,
-                label: '我的帳號',
-                index: 4,
+              Expanded(
+                child: _buildNavItem(
+                  icon: Icons.person_outline,
+                  label: '我的帳號',
+                  index: 4,
+                ),
               ),
             ],
           ),

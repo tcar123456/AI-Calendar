@@ -508,3 +508,39 @@ final hiddenLabelIdsProvider = Provider<List<String>>((ref) {
   return settings.hiddenLabelIds;
 });
 
+/// 總覽模式 Provider
+///
+/// 當為 true 時，顯示所有行事曆的行程
+/// 當為 false 時，只顯示當前選擇行事曆的行程
+final isOverviewModeProvider = StateProvider<bool>((ref) => false);
+
+/// 根據模式取得節日顯示設定
+///
+/// - 總覽模式：預設開啟節日，使用台灣地區
+/// - 非總覽模式：使用選中行事曆的設定
+final effectiveHolidaySettingsProvider = Provider<({bool showHolidays, List<String> holidayRegions})>((ref) {
+  final isOverviewMode = ref.watch(isOverviewModeProvider);
+
+  if (isOverviewMode) {
+    return (showHolidays: true, holidayRegions: ['taiwan']);
+  } else {
+    final settings = ref.watch(selectedCalendarSettingsProvider);
+    return (showHolidays: settings.showHolidays, holidayRegions: settings.holidayRegions);
+  }
+});
+
+/// 根據模式取得農曆顯示設定
+///
+/// - 總覽模式：預設關閉農曆
+/// - 非總覽模式：使用選中行事曆的設定
+final effectiveShowLunarProvider = Provider<bool>((ref) {
+  final isOverviewMode = ref.watch(isOverviewModeProvider);
+
+  if (isOverviewMode) {
+    return false;
+  } else {
+    final settings = ref.watch(selectedCalendarSettingsProvider);
+    return settings.showLunar;
+  }
+});
+

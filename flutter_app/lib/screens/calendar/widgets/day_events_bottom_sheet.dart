@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:lunar/lunar.dart' show Solar;
 import '../../../models/event_model.dart';
 import '../../../models/event_label_model.dart';
 import '../../../models/holiday_model.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/calendar_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../utils/constants.dart';
 import '../utils/calendar_utils.dart';
@@ -181,38 +183,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
                   ),
 
                   // 標題區域（含新增按鈕和切換按鈕）
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: kPaddingLarge,
-                      vertical: kPaddingMedium / 2,
-                    ),
-                    child: Row(
-                      children: [
-                        // 日曆圖標
-                        const Icon(
-                          Icons.event,
-                          color: Colors.black,
-                          size: 22,
-                        ),
-                        const SizedBox(width: 10),
-                        // 日期標題
-                        Expanded(
-                          child: Text(
-                            DateFormat('yyyy年MM月dd日 EEEE', 'zh_TW').format(widget.selectedDay),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        // 新增行程按鈕
-                        _buildAddEventButton(),
-                        const SizedBox(width: 8),
-                        // 檢視模式切換按鈕
-                        _buildViewModeToggle(),
-                      ],
-                    ),
-                  ),
+                  _buildTitleSection(),
 
                   const Divider(height: 1),
 
@@ -245,9 +216,73 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
       },
     );
   }
-  
+
+  /// 建立標題區域
+  ///
+  /// 包含日期標題、農曆文字、新增按鈕和檢視模式切換按鈕
+  Widget _buildTitleSection() {
+    // 取得農曆顯示設定
+    final showLunar = ref.watch(effectiveShowLunarProvider);
+
+    // 計算農曆日期
+    String? lunarText;
+    if (showLunar) {
+      final solar = Solar.fromDate(widget.selectedDay);
+      final lunar = solar.getLunar();
+      // 格式：丙午年正月初一
+      lunarText = '${lunar.getYearInGanZhi()}年${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: kPaddingLarge,
+        vertical: kPaddingMedium / 2,
+      ),
+      child: Row(
+        children: [
+          // 日曆圖標
+          const Icon(
+            Icons.event,
+            color: Colors.black,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          // 日期標題（含農曆）
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('yyyy年MM月dd日 EEEE', 'zh_TW').format(widget.selectedDay),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                // 農曆文字
+                if (showLunar && lunarText != null)
+                  Text(
+                    lunarText,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // 新增行程按鈕
+          _buildAddEventButton(),
+          const SizedBox(width: 8),
+          // 檢視模式切換按鈕
+          _buildViewModeToggle(),
+        ],
+      ),
+    );
+  }
+
   /// 建立節日顯示區域
-  /// 
+  ///
   /// 在分隔線下方顯示深紅色圓角長方形的節日標籤
   /// 複數節日會平分寬度並排顯示
   Widget _buildHolidaySection(List<Holiday> holidays) {
@@ -530,6 +565,16 @@ class _CardModeEventItem extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  // 重複行程標記
+                                  if (event.isRecurring)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 6),
+                                      child: Icon(
+                                        Icons.repeat,
+                                        size: 14,
+                                        color: labelColor,
+                                      ),
+                                    ),
                                   // 語音建立標記
                                   if (event.metadata.createdBy == 'voice')
                                     Padding(
@@ -964,13 +1009,28 @@ class _TimelineView extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color.withOpacity(0.3)),
         ),
-        child: Text(
-          event.title,
-          style: TextStyle(
-            fontSize: 13,
-            color: color,
-            fontWeight: FontWeight.w500,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 重複行程標記
+            if (event.isRecurring)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  Icons.repeat,
+                  size: 12,
+                  color: color,
+                ),
+              ),
+            Text(
+              event.title,
+              style: TextStyle(
+                fontSize: 13,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1108,15 +1168,31 @@ class _TimelineView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               // 標題
-              Text(
-                event.title,
-                style: TextStyle(
-                  fontSize: totalColumns > 2 ? 11 : 13,
-                  fontWeight: FontWeight.w600,
-                  color: color.withOpacity(0.9),
-                ),
-                maxLines: totalColumns > 2 ? 2 : 1,
-                overflow: TextOverflow.ellipsis,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      event.title,
+                      style: TextStyle(
+                        fontSize: totalColumns > 2 ? 11 : 13,
+                        fontWeight: FontWeight.w600,
+                        color: color.withOpacity(0.9),
+                      ),
+                      maxLines: totalColumns > 2 ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // 重複行程標記
+                  if (event.isRecurring)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.repeat,
+                        size: totalColumns > 2 ? 10 : 12,
+                        color: color.withOpacity(0.7),
+                      ),
+                    ),
+                ],
               ),
               // 時間（如果高度足夠且列數不太多）
               if (displayHeight > 45 && totalColumns <= 2)

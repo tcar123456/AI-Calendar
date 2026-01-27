@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../models/event_model.dart';
 import '../../models/holiday_model.dart';
 import '../../providers/auth_provider.dart';
@@ -24,6 +25,7 @@ import 'widgets/calendar_settings_sheet.dart';
 import 'widgets/label_filter_sheet.dart';
 import 'widgets/app_bottom_nav.dart';
 import 'widgets/user_menu_sheet.dart';
+import 'widgets/event_search_sheet.dart';
 
 /// 行事曆主畫面
 /// 
@@ -68,6 +70,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   /// 底部導覽列當前選中的索引
   /// 0: 行事曆, 1: 通知, 2: 語音輸入, 3: 備忘錄, 4: 我的帳號
   int _selectedNavIndex = 0;
+
+  /// 是否正在拖曳行程
+  bool _isDragging = false;
   
   /// 取得用戶設定的週起始日
   /// 
@@ -82,22 +87,30 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
   
-  /// 取得當前行事曆的是否顯示節日設定
+  /// 取得節日顯示設定
   ///
-  /// 監聽當前選擇行事曆的 showHolidays 設定
-  /// 預設為 true
+  /// 總覽模式：預設開啟節日，使用台灣地區
+  /// 非總覽模式：使用選中行事曆的設定
   bool get _showHolidays {
-    final calendarSettings = ref.watch(selectedCalendarSettingsProvider);
-    return calendarSettings.showHolidays;
+    final settings = ref.watch(effectiveHolidaySettingsProvider);
+    return settings.showHolidays;
   }
 
-  /// 取得當前行事曆的節日地區列表
+  /// 取得節日地區列表
   ///
-  /// 監聽當前選擇行事曆的 holidayRegions 設定
-  /// 預設為 ['taiwan']
+  /// 總覽模式：預設使用台灣地區
+  /// 非總覽模式：使用選中行事曆的設定
   List<String> get _holidayRegions {
-    final calendarSettings = ref.watch(selectedCalendarSettingsProvider);
-    return calendarSettings.holidayRegions;
+    final settings = ref.watch(effectiveHolidaySettingsProvider);
+    return settings.holidayRegions;
+  }
+
+  /// 取得農曆顯示設定
+  ///
+  /// 總覽模式：預設關閉農曆
+  /// 非總覽模式：使用選中行事曆的設定
+  bool get _showLunar {
+    return ref.watch(effectiveShowLunarProvider);
   }
 
   @override
@@ -109,7 +122,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     // 預載入當前年份和下一年的節日資料
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _preloadHolidays();
+      _checkNetworkStatus();
     });
+  }
+
+  /// 檢查網路狀態
+  ///
+  /// 若為離線狀態，顯示提示訊息告知用戶無法使用語音建立功能
+  Future<void> _checkNetworkStatus() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult.contains(ConnectivityResult.none) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('您目前為離線狀態，將無法使用語音建立功能'),
+          backgroundColor: Color(0xFF333333),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   /// 預載入節日資料
@@ -138,32 +168,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
   
   /// 切換行事曆格式時重置 PageController
-  /// 
+  ///
   /// 因為不同格式的頁面索引計算方式不同，
   /// 切換格式時需要重新建立 PageController 並跳轉到對應頁面
-  /// 
+  ///
   /// 切換邏輯：
-  /// - 從月視圖切換到週/雙週視圖：跳轉到該月第一天所在的週
-  /// - 從週/雙週視圖切換：保持在當前焦點日期所在的頁面
+  /// - 使用當前選中的日期（_selectedDay）作為目標，確保切換後顯示該日期
   void _onFormatChanged(CalendarFormat newFormat) {
     if (newFormat == _calendarFormat) return;
-    
-    // 計算目標日期（使用當前顯示的焦點日期）
-    DateTime targetDate;
-    if (_calendarFormat == CalendarFormat.month) {
-      // 從月視圖切換出去：使用該月的第一天
-      targetDate = DateTime(_focusedDay.year, _focusedDay.month, 1);
-    } else {
-      // 從週/雙週視圖切換：保持當前焦點日期
-      targetDate = _focusedDay;
-    }
-    
+
+    // 使用選中的日期作為目標，確保切換視圖後導航到該日期
+    final targetDate = _selectedDay;
+
     // 使用新格式的 _initialPage 作為基準，計算目標日期對應的頁面索引
     final newPageIndex = _getPageIndexFromDateForNewFormat(targetDate, newFormat);
-    
+
     // 計算新格式下的焦點日期（頁面的起始日期）
     final newFocusedDay = _getDateFromPageIndexForFormat(newPageIndex, newFormat);
-    
+
     setState(() {
       _calendarFormat = newFormat;
       _focusedDay = newFocusedDay;
@@ -234,7 +256,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   /// 根據當前選中的導覽項目建立對應的 AppBar
-  PreferredSizeWidget _buildAppBar(BuildContext context, dynamic selectedCalendar) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    dynamic selectedCalendar,
+    bool isOverviewMode,
+  ) {
     // 根據當前頁面顯示不同的 AppBar
     switch (_selectedNavIndex) {
       case 1: // 通知頁面
@@ -252,7 +278,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (selectedCalendar != null)
+              // 總覽模式時隱藏圓點色塊
+              if (!isOverviewMode && selectedCalendar != null)
                 Container(
                   width: 12,
                   height: 12,
@@ -262,29 +289,38 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     shape: BoxShape.circle,
                   ),
                 ),
-              Text(selectedCalendar?.name ?? '我的行事曆'),
+              // 總覽模式時顯示「總覽」，否則顯示行事曆名稱
+              Text(isOverviewMode ? '總覽' : (selectedCalendar?.name ?? '我的行事曆')),
             ],
           ),
           centerTitle: false,
           actions: [
-            // 篩選標籤按鈕
-            IconButton(
-              icon: const Icon(Icons.filter_list),
-              tooltip: '篩選標籤',
-              onPressed: () => LabelFilterSheet.show(context),
-            ),
+            // 篩選標籤按鈕（非總覽模式時顯示）
+            if (!isOverviewMode)
+              IconButton(
+                icon: const Icon(Icons.filter_list),
+                tooltip: '篩選標籤',
+                onPressed: () => LabelFilterSheet.show(context),
+              ),
             // 新增行程按鈕
             IconButton(
               icon: const Icon(Icons.add),
               tooltip: '新增行程',
               onPressed: () => _navigateToEventDetail(context, null),
             ),
-            // 行事曆設定按鈕
-            IconButton(
-              icon: const Icon(Icons.space_dashboard),
-              tooltip: '行事曆設定',
-              onPressed: () => CalendarSettingsSheet.show(context),
-            ),
+            // 根據模式顯示不同按鈕
+            if (isOverviewMode)
+              IconButton(
+                icon: const Icon(Icons.search),
+                tooltip: '搜尋行程',
+                onPressed: () => EventSearchSheet.show(context),
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.space_dashboard),
+                tooltip: '行事曆設定',
+                onPressed: () => CalendarSettingsSheet.show(context),
+              ),
           ],
         );
     }
@@ -296,34 +332,48 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final eventsAsync = ref.watch(eventsProvider);
     // 取得當前選擇的行事曆
     final selectedCalendar = ref.watch(selectedCalendarProvider);
+    // 取得總覽模式狀態
+    final isOverviewMode = ref.watch(isOverviewModeProvider);
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: _buildAppBar(context, selectedCalendar),
+    return Stack(
+      children: [
+        Scaffold(
+          resizeToAvoidBottomInset: false,
+          appBar: _buildAppBar(context, selectedCalendar, isOverviewMode),
 
-      body: IndexedStack(
-        index: _selectedNavIndex == 3 ? 2 : (_selectedNavIndex == 1 ? 1 : 0),
-        children: [
-          // 索引 0: 行事曆頁面
-          Column(
+          body: IndexedStack(
+            index: _selectedNavIndex == 3 ? 2 : (_selectedNavIndex == 1 ? 1 : 0),
             children: [
-              Expanded(
-                child: _buildCalendar(eventsAsync),
+              // 索引 0: 行事曆頁面
+              Column(
+                children: [
+                  Expanded(
+                    child: _buildCalendar(eventsAsync),
+                  ),
+                ],
               ),
+              // 索引 1: 通知頁面
+              const NotificationScreen(embedded: true),
+              // 索引 2: 備忘錄頁面
+              const MemoScreen(embedded: true),
             ],
           ),
-          // 索引 1: 通知頁面
-          const NotificationScreen(embedded: true),
-          // 索引 2: 備忘錄頁面
-          const MemoScreen(embedded: true),
-        ],
-      ),
 
-      // 底部導航欄
-      bottomNavigationBar: AppBottomNav(
-        currentIndex: _selectedNavIndex,
-        onItemTap: (index) => _handleBottomNavTap(context, index),
-      ),
+          // 底部導航欄
+          bottomNavigationBar: AppBottomNav(
+            currentIndex: _selectedNavIndex,
+            onItemTap: (index) => _handleBottomNavTap(context, index),
+          ),
+        ),
+        // 拖曳時顯示的垃圾桶（覆蓋在導航列麥克風位置）
+        if (_isDragging)
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 8,
+            left: 0,
+            right: 0,
+            child: Center(child: _buildDeleteDropZone()),
+          ),
+      ],
     );
   }
 
@@ -511,6 +561,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     calendarFormat: _calendarFormat,
                     showHolidays: _showHolidays,
                     holidayRegions: _holidayRegions,
+                    showLunar: _showLunar,
                     onDaySelected: (selectedDay) {
                       setState(() {
                         _selectedDay = selectedDay;
@@ -527,6 +578,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       );
                     },
                     onEventTap: (event) => _navigateToEventDetail(context, event),
+                    onEventDrop: (event, sourceDate, targetDate) {
+                      _showMoveOrCopyDialog(context, event, sourceDate, targetDate);
+                    },
+                    onDragStarted: () {
+                      setState(() => _isDragging = true);
+                    },
+                    onDragEnded: () {
+                      setState(() => _isDragging = false);
+                    },
                   ),
                 );
               }).toList(),
@@ -540,7 +600,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   week: week,
                   event: event,
                   cellWidth: cellWidth,
-                  dateNumberHeight: DayCell.dateNumberHeight,
+                  dateNumberHeight: _showLunar
+                      ? DayCell.dateNumberHeight + DayCell.lunarTextHeight
+                      : DayCell.dateNumberHeight,
                   eventItemHeight: DayCell.eventItemHeight,
                   eventItemGap: DayCell.eventItemGap,
                   rowAllocation: _multiDayEventRowAllocation,
@@ -559,6 +621,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       onAddEvent: () => _navigateToEventDetail(context, null),
                       onEventTap: (event) => _navigateToEventDetail(context, event),
                     );
+                  },
+                  onDragStarted: () {
+                    setState(() => _isDragging = true);
+                  },
+                  onDragEnded: () {
+                    setState(() => _isDragging = false);
                   },
                 ),
           ],
@@ -631,7 +699,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           _focusedDay = date;
         });
       },
-      onJumpToToday: _jumpToToday,
     );
   }
 
@@ -704,7 +771,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   /// 顯示用戶選單
-  /// 
+  ///
   /// UserMenuSheet 內部會自動監聽用戶資料，不需要從外部傳入
   void _showUserMenu(BuildContext context) {
     UserMenuSheet.show(
@@ -718,5 +785,252 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ref.read(authControllerProvider.notifier).signOut();
       },
     );
+  }
+
+  /// 顯示移動/複製選單
+  ///
+  /// 當行程被拖曳到新日期時顯示此選單
+  /// [event] 被拖曳的行程
+  /// [sourceDate] 來源日期
+  /// [targetDate] 目標日期
+  void _showMoveOrCopyDialog(
+    BuildContext context,
+    CalendarEvent event,
+    DateTime sourceDate,
+    DateTime targetDate,
+  ) {
+    // 如果目標日期與來源日期相同，不做任何操作
+    final sourceDateOnly = DateTime(sourceDate.year, sourceDate.month, sourceDate.day);
+    final targetDateOnly = DateTime(targetDate.year, targetDate.month, targetDate.day);
+
+    if (sourceDateOnly == targetDateOnly) {
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 標題
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  '「${event.title}」',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Divider(height: 1),
+              // 移動選項
+              ListTile(
+                leading: const Icon(Icons.drive_file_move_outlined),
+                title: const Text('移動'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _moveEventToDate(event, sourceDate, targetDate);
+                },
+              ),
+              // 複製選項
+              ListTile(
+                leading: const Icon(Icons.copy_outlined),
+                title: const Text('複製'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _copyEventToDate(event, targetDate);
+                },
+              ),
+              const Divider(height: 1),
+              // 取消選項
+              ListTile(
+                leading: const Icon(Icons.close),
+                title: const Text('取消'),
+                onTap: () => Navigator.pop(context),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 移動行程到新日期
+  ///
+  /// 保持行程時長不變，只更新開始和結束日期
+  Future<void> _moveEventToDate(
+    CalendarEvent event,
+    DateTime sourceDate,
+    DateTime targetDate,
+  ) async {
+    // 計算日期差異
+    final sourceDateOnly = DateTime(sourceDate.year, sourceDate.month, sourceDate.day);
+    final targetDateOnly = DateTime(targetDate.year, targetDate.month, targetDate.day);
+    final daysDiff = targetDateOnly.difference(sourceDateOnly).inDays;
+
+    // 計算新的開始和結束時間
+    final newStartTime = event.startTime.add(Duration(days: daysDiff));
+    final newEndTime = event.endTime.add(Duration(days: daysDiff));
+
+    // 建立更新後的行程
+    final updatedEvent = event.copyWith(
+      startTime: newStartTime,
+      endTime: newEndTime,
+      updatedAt: DateTime.now(),
+    );
+
+    // 更新行程
+    final success = await ref
+        .read(eventControllerProvider.notifier)
+        .updateEvent(event.id, updatedEvent);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? '行程已移動' : '移動失敗'),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+    }
+  }
+
+  /// 複製行程到新日期
+  ///
+  /// 建立新行程，保持時長和其他屬性
+  Future<void> _copyEventToDate(CalendarEvent event, DateTime targetDate) async {
+    // 計算日期差異
+    final sourceDateOnly = DateTime(
+      event.startTime.year,
+      event.startTime.month,
+      event.startTime.day,
+    );
+    final targetDateOnly = DateTime(targetDate.year, targetDate.month, targetDate.day);
+    final daysDiff = targetDateOnly.difference(sourceDateOnly).inDays;
+
+    // 計算新的開始和結束時間
+    final newStartTime = event.startTime.add(Duration(days: daysDiff));
+    final newEndTime = event.endTime.add(Duration(days: daysDiff));
+
+    // 建立新行程（複製所有屬性，但使用新的時間和 ID）
+    final newEvent = CalendarEvent(
+      id: '', // 由 Firestore 自動產生
+      userId: event.userId,
+      calendarId: event.calendarId,
+      title: event.title,
+      startTime: newStartTime,
+      endTime: newEndTime,
+      location: event.location,
+      description: event.description,
+      participants: event.participants,
+      reminderMinutes: event.reminderMinutes,
+      isAllDay: event.isAllDay,
+      labelId: event.labelId,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      metadata: EventMetadata(createdBy: 'manual'),
+    );
+
+    // 建立新行程
+    final eventId = await ref
+        .read(eventControllerProvider.notifier)
+        .createEvent(newEvent);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(eventId != null ? '行程已複製' : '複製失敗'),
+          backgroundColor: eventId != null ? Colors.green : Colors.red,
+        ),
+      );
+    }
+  }
+
+  /// 建立刪除區域（垃圾桶圖示）
+  ///
+  /// 拖曳行程時顯示在底部，放開可刪除行程
+  Widget _buildDeleteDropZone() {
+    return DragTarget<EventDragData>(
+      onWillAcceptWithDetails: (details) => true,
+      onAcceptWithDetails: (details) {
+        _deleteEventByDrag(details.data.event);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+
+        return Container(
+          width: 62,
+          height: 62,
+          decoration: BoxDecoration(
+            color: isHovering ? Colors.red.shade700 : Colors.red,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.delete_outline,
+            size: 30,
+            color: Colors.white,
+          ),
+        );
+      },
+    );
+  }
+
+  /// 透過拖曳刪除行程
+  Future<void> _deleteEventByDrag(CalendarEvent event) async {
+    // 先結束拖曳狀態
+    setState(() => _isDragging = false);
+
+    // 顯示確認對話框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('確認刪除'),
+        content: Text('確定要刪除「${event.title}」嗎？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('刪除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await ref
+          .read(eventControllerProvider.notifier)
+          .deleteEvent(event.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? '行程已刪除' : '刪除失敗'),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

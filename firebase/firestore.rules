@@ -30,11 +30,13 @@ service cloud.firestore {
     }
     
     // ==================== Events Collection ====================
-    
+
     // 用戶只能讀寫自己的行程
+    // 重複行程相關欄位（可選）：isMasterEvent, recurrenceRule, masterEventId, originalDate, isException
     match /events/{eventId} {
       // 允許建立行程（必須設定 userId 為當前用戶）
-      allow create: if isSignedIn() && 
+      // 重複行程欄位為可選，確保向後相容
+      allow create: if isSignedIn() &&
                        request.resource.data.userId == request.auth.uid &&
                        request.resource.data.keys().hasAll([
                          'userId', 'title', 'startTime', 'endTime',

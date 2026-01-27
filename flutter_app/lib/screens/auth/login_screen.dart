@@ -243,65 +243,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     return Column(
       children: [
         // Email 登入按鈕
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: OutlinedButton.icon(
-            onPressed: authState.isLoading ? null : _showEmailLoginForm,
-            icon: const Icon(Icons.email_outlined, size: 24),
-            label: const Text('使用 Email 登入'),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey[300]!),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
+        _buildLoginButton(
+          icon: Icons.email_outlined,
+          iconColor: Colors.grey[700]!,
+          label: '使用 Email 登入',
+          onPressed: authState.isLoading ? null : _showEmailLoginForm,
         ),
 
         const SizedBox(height: 16),
 
         // Google 登入按鈕
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: OutlinedButton.icon(
-            onPressed: authState.isLoading ? null : _handleGoogleSignIn,
-            icon: Image.network(
-              'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-              width: 24,
-              height: 24,
-              errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.g_mobiledata, size: 28),
-            ),
-            label: const Text('使用 Google 登入'),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey[300]!),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
+        _buildLoginButton(
+          icon: Icons.g_mobiledata,
+          iconColor: Colors.red,
+          label: '使用 Google 登入',
+          onPressed: authState.isLoading ? null : _handleGoogleSignIn,
         ),
 
         const SizedBox(height: 16),
 
         // Facebook 登入按鈕（禁用）
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: OutlinedButton.icon(
-            onPressed: null, // 禁用
-            icon: const Icon(Icons.facebook, size: 24),
-            label: const Text('使用 Facebook 登入'),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey[300]!),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              disabledForegroundColor: Colors.grey[400],
-            ),
-          ),
+        _buildLoginButton(
+          icon: Icons.facebook,
+          iconColor: Colors.blue,
+          label: '使用 Facebook 登入',
+          onPressed: null,
+          isDisabled: true,
         ),
 
         const SizedBox(height: 12),
@@ -312,6 +279,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           const CircularProgressIndicator(),
         ],
       ],
+    );
+  }
+
+  /// 建立登入按鈕（統一樣式）
+  Widget _buildLoginButton({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required VoidCallback? onPressed,
+    bool isDisabled = false,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: isDisabled ? null : onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          side: BorderSide(
+            color: isDisabled ? Colors.grey[300]! : Colors.grey[400]!,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: isDisabled ? Colors.grey[400] : iconColor,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isDisabled ? Colors.grey[400] : Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

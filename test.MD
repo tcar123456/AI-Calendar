@@ -784,5 +784,11 @@ log stream --predicate 'processImagePath contains "Runner"' --level debug
 4. 詢問 Flutter 社群（Discord/Reddit）
 
 
+列出模擬器（看id） flutter emulators
+列出已連線實機     flutter devices
+
+指定裝置 flutter run -d <DEVICE_ID>
+
+
 flutter emulators --launch Pixel_6 (ID)
 flutter run

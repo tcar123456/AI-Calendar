@@ -120,6 +120,9 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    const Spacer(),
+                    // 總覽按鈕
+                    _buildOverviewButton(),
                   ],
                 ),
               ),
@@ -167,6 +170,40 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
               
               const SizedBox(height: 16),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 建立總覽按鈕
+  ///
+  /// 點擊後開啟總覽模式，顯示所有行事曆的行程
+  Widget _buildOverviewButton() {
+    final isOverviewMode = ref.watch(isOverviewModeProvider);
+
+    return GestureDetector(
+      onTap: () {
+        // 開啟總覽模式
+        ref.read(isOverviewModeProvider.notifier).state = true;
+        Navigator.pop(context);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isOverviewMode ? Colors.black : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.black,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          '總覽',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isOverviewMode ? Colors.white : Colors.black,
           ),
         ),
       ),
@@ -341,6 +378,8 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
   Widget _buildCalendarCard(CalendarModel calendar, bool isSelected) {
     return GestureDetector(
       onTap: () {
+        // 關閉總覽模式
+        ref.read(isOverviewModeProvider.notifier).state = false;
         // 選擇此行事曆
         ref.read(calendarControllerProvider.notifier).selectCalendar(calendar.id);
         Navigator.pop(context);

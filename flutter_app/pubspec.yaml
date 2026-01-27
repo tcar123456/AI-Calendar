@@ -34,12 +34,16 @@ dependencies:
   table_calendar: ^3.0.9
   intl: ^0.20.2  # 更新版本以配合 flutter_localizations
 
+  # 農曆轉換
+  lunar: ^1.3.0
+
   # 工具套件
   uuid: ^4.1.0
   http: ^1.1.0
   path_provider: ^2.1.0
   universal_io: ^2.2.2  # 跨平台 IO 支援（Web + 移動）
   shared_preferences: ^2.2.0  # 本地儲存（用於標籤設定等）
+  connectivity_plus: ^6.0.0  # 網路狀態檢測
 
   # UI 美化
   cupertino_icons: ^1.0.2

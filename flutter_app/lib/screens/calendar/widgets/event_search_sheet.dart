@@ -355,14 +355,30 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
           borderRadius: BorderRadius.circular(2),
         ),
       ),
-      title: Text(
-        event.title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 15,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              event.title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // 重複行程標記
+          if (event.isRecurring)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: Icon(
+                Icons.repeat,
+                size: 14,
+                color: label.color,
+              ),
+            ),
+        ],
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

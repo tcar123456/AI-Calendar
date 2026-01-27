@@ -65,14 +65,20 @@ final voiceProcessingRecordProvider = StreamProvider.family<VoiceProcessingRecor
 /// 用戶的語音處理記錄列表 Provider
 final userVoiceRecordsProvider = StreamProvider<List<VoiceProcessingRecord>>((ref) {
   final userId = ref.watch(currentUserIdProvider);
-  
+
   if (userId == null) {
     return Stream.value([]);
   }
-  
+
   final firebaseService = ref.watch(firebaseServiceProvider);
   return firebaseService.watchUserVoiceRecords(userId);
 });
+
+/// 語音建立行程的目標行事曆 ID Provider
+///
+/// 用於在語音輸入面板中選擇要建立行程的行事曆
+/// 預設為 null，會使用當前選擇的行事曆
+final voiceTargetCalendarIdProvider = StateProvider<String?>((ref) => null);
 
 /// 語音控制器 State
 class VoiceState {
@@ -156,7 +162,7 @@ class VoiceState {
 }
 
 /// 語音控制器
-/// 
+///
 /// 處理語音錄製、上傳、AI 解析等操作
 class VoiceController extends StateNotifier<VoiceState> {
   final VoiceService _voiceService;
@@ -165,7 +171,10 @@ class VoiceController extends StateNotifier<VoiceState> {
   Timer? _recordingTimer;
   StreamSubscription? _processingSubscription;
 
-  VoiceController(this._voiceService, this._firebaseService, this._ref) 
+  /// 是否已被用戶取消（用於忽略取消後的錯誤回報）
+  bool _isCancelled = false;
+
+  VoiceController(this._voiceService, this._firebaseService, this._ref)
     : super(const VoiceState());
 
   @override
@@ -262,19 +271,23 @@ class VoiceController extends StateNotifier<VoiceState> {
   /// [filePath] 移動平台的檔案路徑
   /// [audioBytes] Web 平台的音檔數據
   Future<void> _processVoiceData({String? filePath, Uint8List? audioBytes}) async {
+    // 重置取消標記
+    _isCancelled = false;
+
     final userId = _ref.read(currentUserIdProvider);
     if (userId == null) {
       state = state.copyWith(errorMessage: '用戶未登入');
       return;
     }
 
-    // 取得當前選擇的行事曆（語音建立的行程會放入此行事曆）
+    // 取得語音建立的目標行事曆（優先使用語音面板中選擇的行事曆，否則使用當前選擇的行事曆）
+    final voiceTargetCalendarId = _ref.read(voiceTargetCalendarIdProvider);
     final selectedCalendar = _ref.read(selectedCalendarProvider);
-    final calendarId = selectedCalendar?.id;
+    final calendarId = voiceTargetCalendarId ?? selectedCalendar?.id;
 
     // 取得當前行事曆的標籤列表（用於 AI 自動選擇標籤）
     final labels = _ref.read(calendarLabelsProvider);
-    final labelsList = labels.map((label) => {
+    final List<Map<String, String>> labelsList = labels.map((label) => <String, String>{
       'id': label.id,
       'name': label.name,
     }).toList();
@@ -282,6 +295,9 @@ class VoiceController extends StateNotifier<VoiceState> {
     if (kDebugMode) {
       print('📅 語音處理 - 目標行事曆: ${selectedCalendar?.name ?? "未選擇"} ($calendarId)');
       print('🏷️ 語音處理 - 標籤數量: ${labelsList.length}');
+      for (final label in labelsList) {
+        print('  - ${label['id']}: ${label['name']}');
+      }
     }
 
     // 開始處理 - 上傳階段
@@ -327,6 +343,9 @@ class VoiceController extends StateNotifier<VoiceState> {
           // 處理成功，Cloud Function 已建立行程，這裡只需更新狀態
           _onVoiceProcessingCompleted(record);
         } else if (record.isFailed()) {
+          // 如果已被用戶取消，忽略錯誤
+          if (_isCancelled) return;
+
           // 處理失敗
           state = state.copyWith(
             isProcessing: false,
@@ -339,6 +358,9 @@ class VoiceController extends StateNotifier<VoiceState> {
         }
       });
     } catch (e) {
+      // 如果已被用戶取消，忽略錯誤
+      if (_isCancelled) return;
+
       state = state.copyWith(
         isProcessing: false,
         errorMessage: '上傳語音失敗：$e',
@@ -370,6 +392,9 @@ class VoiceController extends StateNotifier<VoiceState> {
 
   /// 取消解析處理
   void cancelProcessing() {
+    // 設定取消標記，忽略後續的錯誤回報
+    _isCancelled = true;
+
     _processingSubscription?.cancel();
     _processingSubscription = null;
     // 重置所有狀態，包括階段和進度

@@ -1,24 +1,19 @@
 import 'package:flutter/material.dart';
-import '../../../utils/constants.dart';
 
 /// 年月選擇器對話框
-/// 
+///
 /// 讓用戶可以快速跳轉到指定的年月
 class YearMonthPicker extends StatefulWidget {
   /// 當前選中的日期
   final DateTime currentDate;
-  
+
   /// 選擇年月後的回調
   final ValueChanged<DateTime> onDateSelected;
-  
-  /// 跳轉到今天的回調
-  final VoidCallback onJumpToToday;
 
   const YearMonthPicker({
     super.key,
     required this.currentDate,
     required this.onDateSelected,
-    required this.onJumpToToday,
   });
 
   /// 顯示年月選擇器的靜態方法
@@ -26,14 +21,12 @@ class YearMonthPicker extends StatefulWidget {
     required BuildContext context,
     required DateTime currentDate,
     required ValueChanged<DateTime> onDateSelected,
-    required VoidCallback onJumpToToday,
   }) {
     showDialog(
       context: context,
       builder: (context) => YearMonthPicker(
         currentDate: currentDate,
         onDateSelected: onDateSelected,
-        onJumpToToday: onJumpToToday,
       ),
     );
   }
@@ -45,128 +38,182 @@ class YearMonthPicker extends StatefulWidget {
 class _YearMonthPickerState extends State<YearMonthPicker> {
   late int selectedYear;
   late int selectedMonth;
+  late FixedExtentScrollController _yearController;
+  late FixedExtentScrollController _monthController;
+
+  // 年度範圍：當年度 +-30 年
+  late int minYear;
+  late int maxYear;
 
   @override
   void initState() {
     super.initState();
+    final currentYear = DateTime.now().year;
+    minYear = currentYear - 30;
+    maxYear = currentYear + 30;
+
     selectedYear = widget.currentDate.year;
     selectedMonth = widget.currentDate.month;
+
+    // 計算年份在列表中的索引
+    final yearIndex = selectedYear - minYear;
+    _yearController = FixedExtentScrollController(initialItem: yearIndex);
+    _monthController = FixedExtentScrollController(initialItem: selectedMonth - 1);
+  }
+
+  @override
+  void dispose() {
+    _yearController.dispose();
+    _monthController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('選擇年月'),
+      titlePadding: EdgeInsets.zero,
+      contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       content: SizedBox(
         width: 280,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 年份選擇器
-            Row(
-              children: [
-                const Text('年份：', style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButton<int>(
-                    value: selectedYear,
-                    isExpanded: true,
-                    // 提供 2020-2030 年的選項
-                    items: List.generate(11, (index) => 2020 + index)
-                        .map((year) => DropdownMenuItem(
-                              value: year,
-                              child: Text('$year 年'),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          selectedYear = value;
-                        });
-                      }
-                    },
+            // 標題列：取消 - 選擇年月 - 確認
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  // 取消按鈕（左邊，灰色）
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey[600],
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: const Text('取消'),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // 月份選擇器（使用網格佈局）
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('月份：', style: TextStyle(fontSize: 16)),
-            ),
-            const SizedBox(height: 8),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                childAspectRatio: 1.5,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: 12,
-              itemBuilder: (context, index) {
-                final month = index + 1;
-                final isSelected = month == selectedMonth;
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      selectedMonth = month;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.black
-                          : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isSelected
-                            ? Colors.black
-                            : Colors.grey[300]!,
+                  // 標題（置中）
+                  const Expanded(
+                    child: Text(
+                      '選擇年月',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '$month月',
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black87,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
+                  ),
+                  // 確認按鈕（右邊，黑色）
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      widget.onDateSelected(DateTime(selectedYear, selectedMonth, 1));
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: const Text('確認'),
+                  ),
+                ],
+              ),
+            ),
+            // 滾輪選擇器區域
+            SizedBox(
+              height: 200,
+              child: Row(
+                children: [
+                  // 左邊：年份滾輪
+                  Expanded(
+                    child: _buildWheelPicker(
+                      controller: _yearController,
+                      itemCount: maxYear - minYear + 1,
+                      itemBuilder: (index) => '${minYear + index} 年',
+                      onSelectedItemChanged: (index) {
+                        setState(() {
+                          selectedYear = minYear + index;
+                        });
+                      },
+                      selectedIndex: selectedYear - minYear,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // 右邊：月份滾輪
+                  Expanded(
+                    child: _buildWheelPicker(
+                      controller: _monthController,
+                      itemCount: 12,
+                      itemBuilder: (index) => '${index + 1} 月',
+                      onSelectedItemChanged: (index) {
+                        setState(() {
+                          selectedMonth = index + 1;
+                        });
+                      },
+                      selectedIndex: selectedMonth - 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 建立滾輪選擇器
+  Widget _buildWheelPicker({
+    required FixedExtentScrollController controller,
+    required int itemCount,
+    required String Function(int index) itemBuilder,
+    required ValueChanged<int> onSelectedItemChanged,
+    required int selectedIndex,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Stack(
+        children: [
+          // 選中項目的高亮背景
+          Center(
+            child: Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+            ),
+          ),
+          // 滾輪選擇器
+          ListWheelScrollView.useDelegate(
+            controller: controller,
+            itemExtent: 40,
+            diameterRatio: 1.5,
+            perspective: 0.005,
+            physics: const FixedExtentScrollPhysics(),
+            onSelectedItemChanged: onSelectedItemChanged,
+            childDelegate: ListWheelChildBuilderDelegate(
+              childCount: itemCount,
+              builder: (context, index) {
+                final isSelected = index == selectedIndex;
+                return Center(
+                  child: Text(
+                    itemBuilder(index),
+                    style: TextStyle(
+                      fontSize: isSelected ? 18 : 14,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected ? Colors.black : Colors.grey[500],
                     ),
                   ),
                 );
               },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      actions: [
-        // 取消按鈕
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        // 跳轉到今天按鈕
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-            widget.onJumpToToday();
-          },
-          child: const Text('今天'),
-        ),
-        // 確認按鈕
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            widget.onDateSelected(DateTime(selectedYear, selectedMonth, 1));
-          },
-          child: const Text('確認'),
-        ),
-      ],
     );
   }
 }
-

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/voice_provider.dart';
+import '../../providers/calendar_provider.dart';
 import '../../utils/constants.dart';
 
 /// 語音輸入底部面板
@@ -26,6 +27,14 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
+
+    // 初始化語音目標行事曆為當前選擇的行事曆
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final selectedCalendar = ref.read(selectedCalendarProvider);
+      if (selectedCalendar != null) {
+        ref.read(voiceTargetCalendarIdProvider.notifier).state = selectedCalendar.id;
+      }
+    });
   }
 
   @override
@@ -103,6 +112,9 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
                 // 分隔線
                 const Divider(height: 1),
 
+                // 行事曆選擇
+                _buildCalendarSelector(),
+
                 Expanded(
                   child: Center(
                     child: Column(
@@ -136,6 +148,104 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
           ),
         ),
       ),
+    );
+  }
+
+  /// 建立行事曆選擇器
+  Widget _buildCalendarSelector() {
+    final calendars = ref.watch(calendarsProvider);
+    final selectedCalendarId = ref.watch(voiceTargetCalendarIdProvider);
+
+    return calendars.when(
+      data: (calendarList) {
+        if (calendarList.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        // 確保選中的行事曆存在於列表中
+        final validSelectedId = calendarList.any((c) => c.id == selectedCalendarId)
+            ? selectedCalendarId
+            : calendarList.first.id;
+
+        // 如果 selectedCalendarId 無效，更新為第一個行事曆
+        if (selectedCalendarId != validSelectedId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(voiceTargetCalendarIdProvider.notifier).state = validSelectedId;
+          });
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Text(
+                '選擇行事曆',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: validSelectedId,
+                      isExpanded: true,
+                      icon: const Icon(Icons.keyboard_arrow_down),
+                      items: calendarList.map((calendar) {
+                        return DropdownMenuItem<String>(
+                          value: calendar.id,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: calendar.color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  calendar.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          ref.read(voiceTargetCalendarIdProvider.notifier).state = newValue;
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 

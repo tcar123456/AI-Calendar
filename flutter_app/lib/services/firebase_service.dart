@@ -397,6 +397,194 @@ class FirebaseService {
         .toList();
   }
 
+  // ==================== 重複行程相關 ====================
+
+  /// 批次建立重複行程（主行程 + 實例）
+  ///
+  /// [masterEvent] 主行程
+  /// [instances] 實例列表
+  ///
+  /// 回傳：主行程的 ID
+  Future<String> createRecurringEvents(
+    CalendarEvent masterEvent,
+    List<CalendarEvent> instances,
+  ) async {
+    // 先建立主行程以取得 ID
+    final masterDocRef = await _firestore
+        .collection(kEventsCollection)
+        .add(masterEvent.toFirestore());
+    final masterId = masterDocRef.id;
+
+    // 使用批次寫入建立實例（每批最多 500 個）
+    const batchSize = 500;
+    for (var i = 0; i < instances.length; i += batchSize) {
+      final batch = _firestore.batch();
+      final end = (i + batchSize < instances.length) ? i + batchSize : instances.length;
+
+      for (var j = i; j < end; j++) {
+        final instance = instances[j].copyWith(masterEventId: masterId);
+        final docRef = _firestore.collection(kEventsCollection).doc();
+        batch.set(docRef, instance.toFirestore());
+      }
+
+      await batch.commit();
+    }
+
+    return masterId;
+  }
+
+  /// 刪除整個重複系列（主行程 + 所有實例）
+  ///
+  /// [masterEventId] 主行程 ID
+  Future<void> deleteRecurrenceSeries(String masterEventId) async {
+    final userId = currentUserId;
+    if (userId == null) {
+      throw Exception('用戶未登入');
+    }
+
+    // 查詢所有實例
+    final instancesSnapshot = await _firestore
+        .collection(kEventsCollection)
+        .where('userId', isEqualTo: userId)
+        .where('masterEventId', isEqualTo: masterEventId)
+        .get();
+
+    // 使用批次刪除
+    const batchSize = 500;
+    final allDocs = [
+      ...instancesSnapshot.docs,
+    ];
+
+    for (var i = 0; i < allDocs.length; i += batchSize) {
+      final batch = _firestore.batch();
+      final end = (i + batchSize < allDocs.length) ? i + batchSize : allDocs.length;
+
+      for (var j = i; j < end; j++) {
+        batch.delete(allDocs[j].reference);
+      }
+
+      await batch.commit();
+    }
+
+    // 刪除主行程
+    await _firestore.collection(kEventsCollection).doc(masterEventId).delete();
+  }
+
+  /// 刪除指定日期及之後的實例
+  ///
+  /// [masterEventId] 主行程 ID
+  /// [fromDate] 從哪個日期開始刪除（含）
+  Future<void> deleteInstancesFromDate(
+    String masterEventId,
+    DateTime fromDate,
+  ) async {
+    final userId = currentUserId;
+    if (userId == null) {
+      throw Exception('用戶未登入');
+    }
+
+    // 查詢指定日期及之後的實例
+    final startOfDay = DateTime(fromDate.year, fromDate.month, fromDate.day);
+    final instancesSnapshot = await _firestore
+        .collection(kEventsCollection)
+        .where('userId', isEqualTo: userId)
+        .where('masterEventId', isEqualTo: masterEventId)
+        .where('originalDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .get();
+
+    // 使用批次刪除
+    const batchSize = 500;
+    for (var i = 0; i < instancesSnapshot.docs.length; i += batchSize) {
+      final batch = _firestore.batch();
+      final end = (i + batchSize < instancesSnapshot.docs.length)
+          ? i + batchSize
+          : instancesSnapshot.docs.length;
+
+      for (var j = i; j < end; j++) {
+        batch.delete(instancesSnapshot.docs[j].reference);
+      }
+
+      await batch.commit();
+    }
+  }
+
+  /// 更新整個重複系列
+  ///
+  /// [masterEventId] 主行程 ID
+  /// [updates] 要更新的欄位
+  /// [excludeFields] 實例不更新的欄位（例如 isMasterEvent）
+  Future<void> updateRecurrenceSeries(
+    String masterEventId,
+    Map<String, dynamic> updates,
+  ) async {
+    final userId = currentUserId;
+    if (userId == null) {
+      throw Exception('用戶未登入');
+    }
+
+    // 更新主行程
+    await _firestore
+        .collection(kEventsCollection)
+        .doc(masterEventId)
+        .update(updates);
+
+    // 查詢所有非例外實例
+    final instancesSnapshot = await _firestore
+        .collection(kEventsCollection)
+        .where('userId', isEqualTo: userId)
+        .where('masterEventId', isEqualTo: masterEventId)
+        .where('isException', isEqualTo: false)
+        .get();
+
+    // 準備實例的更新資料（排除某些欄位）
+    final instanceUpdates = Map<String, dynamic>.from(updates);
+    instanceUpdates.remove('isMasterEvent');
+    instanceUpdates.remove('recurrenceRule');
+    instanceUpdates.remove('masterEventId');
+    instanceUpdates.remove('originalDate');
+
+    // 使用批次更新
+    const batchSize = 500;
+    for (var i = 0; i < instancesSnapshot.docs.length; i += batchSize) {
+      final batch = _firestore.batch();
+      final end = (i + batchSize < instancesSnapshot.docs.length)
+          ? i + batchSize
+          : instancesSnapshot.docs.length;
+
+      for (var j = i; j < end; j++) {
+        batch.update(instancesSnapshot.docs[j].reference, instanceUpdates);
+      }
+
+      await batch.commit();
+    }
+  }
+
+  /// 取得主行程
+  ///
+  /// [masterEventId] 主行程 ID
+  Future<CalendarEvent?> getMasterEvent(String masterEventId) async {
+    return getEvent(masterEventId);
+  }
+
+  /// 取得重複系列的所有實例
+  ///
+  /// [masterEventId] 主行程 ID
+  Future<List<CalendarEvent>> getRecurrenceInstances(String masterEventId) async {
+    final userId = currentUserId;
+    if (userId == null) return [];
+
+    final snapshot = await _firestore
+        .collection(kEventsCollection)
+        .where('userId', isEqualTo: userId)
+        .where('masterEventId', isEqualTo: masterEventId)
+        .orderBy('startTime')
+        .get();
+
+    return snapshot.docs
+        .map((doc) => CalendarEvent.fromFirestore(doc))
+        .toList();
+  }
+
   // ==================== 語音處理相關 ====================
 
   /// 上傳語音檔案到 Storage（移動平台）

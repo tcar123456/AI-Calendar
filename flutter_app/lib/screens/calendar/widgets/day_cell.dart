@@ -1,73 +1,106 @@
 import 'package:flutter/material.dart';
+import 'package:lunar/lunar.dart' show Solar;
 import 'package:table_calendar/table_calendar.dart';
 import '../../../models/event_model.dart';
 import '../../../models/holiday_model.dart';
 import '../../../utils/constants.dart';
 import '../utils/calendar_utils.dart';
 
+/// 行程拖曳資料
+///
+/// 用於在拖曳過程中傳遞行程資訊
+class EventDragData {
+  final CalendarEvent event;
+  final DateTime sourceDate;
+
+  const EventDragData({
+    required this.event,
+    required this.sourceDate,
+  });
+}
+
 /// 日期單元格元件
-/// 
+///
 /// 顯示單個日期的內容，包括：
 /// - 日期數字（今天會有特殊樣式）
 /// - 節日（作為行程顯示，使用紅色背景）
 /// - 單日事件列表（填入跨日事件之間的空白插槽）
-/// 
+///
 /// 設計說明：
 /// - 跨日事件橫條由上層 Stack 繪製，不在此元件中處理
 /// - 節日會作為第一個事件項目顯示，使用紅色背景（類似 TimeTree）
 /// - 單日事件會根據 occupiedRows 來決定放置位置
 /// - 點擊整個日期單元格（無論是空白區域還是事件）都會觸發 onDaySelected
 /// - 用戶需要先開啟日期列表，再點擊列表中的行程進入編輯
+/// - 支援長按行程拖曳到其他日期
 class DayCell extends StatelessWidget {
   /// 當天日期
   final DateTime day;
-  
+
   /// 當天的單日事件列表
   final List<CalendarEvent> singleDayEvents;
-  
+
   /// 所有事件（用於計算）
   final List<CalendarEvent> allEvents;
-  
+
   /// 被跨日事件佔據的行索引
   final Set<int> occupiedRows;
-  
+
   /// 跨日事件總行數
   final int totalMultiDayRows;
-  
+
   /// 焦點月份（用於判斷是否為當月日期）
   final DateTime focusedMonth;
-  
+
   /// 選中的日期
   final DateTime selectedDay;
-  
+
   /// 跨日事件行分配表
   final Map<String, int> rowAllocation;
-  
+
   /// 點擊日期的回調（統一開啟列表）
   final ValueChanged<DateTime> onDaySelected;
-  
+
   /// 點擊事件的回調（目前不再直接使用，保留以維持 API 相容性）
   final ValueChanged<CalendarEvent> onEventTap;
-  
+
+  /// 行程拖曳放置回調
+  ///
+  /// 當行程被拖曳到此日期並放開時觸發
+  /// 參數：(被拖曳的行程, 來源日期, 目標日期)
+  final void Function(CalendarEvent event, DateTime sourceDate, DateTime targetDate)? onEventDrop;
+
+  /// 拖曳開始回調
+  final VoidCallback? onDragStarted;
+
+  /// 拖曳結束回調
+  final VoidCallback? onDragEnded;
+
   /// 當前行事曆格式（月/雙週/週）
   /// 用於決定是否需要反灰非當月日期
   final CalendarFormat calendarFormat;
-  
+
   /// 是否顯示節日
   final bool showHolidays;
-  
+
   /// 節日地區列表（複選）
   final List<String> holidayRegions;
-  
-  /// 日期數字區域高度
+
+  /// 是否顯示農曆
+  final bool showLunar;
+
+  /// 日期數字區域高度（不含農曆）
   static const double dateNumberHeight = 24.0;
-  
+
+  /// 農曆文字高度
+  static const double lunarTextHeight = 12.0;
+
   /// 事件項目高度
   static const double eventItemHeight = 14.0;
-  
+
   /// 事件項目間距
   static const double eventItemGap = 1.0;
-  
+
   /// 最大顯示行數
   static const int maxDisplayRows = 4;
 
@@ -83,9 +116,13 @@ class DayCell extends StatelessWidget {
     required this.rowAllocation,
     required this.onDaySelected,
     required this.onEventTap,
+    this.onEventDrop,
+    this.onDragStarted,
+    this.onDragEnded,
     this.calendarFormat = CalendarFormat.month,
     this.showHolidays = true,
     this.holidayRegions = const ['taiwan'],
+    this.showLunar = false,
   });
 
   @override
@@ -129,55 +166,107 @@ class DayCell extends StatelessWidget {
         availableSlots.add(i);
       }
     }
-    
-    return GestureDetector(
-      onTap: () => onDaySelected(day),
-      child: Container(
-        margin: const EdgeInsets.all(1),
-        clipBehavior: Clip.hardEdge,
-        decoration: BoxDecoration(
-          color: containerBackgroundColor,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Column(
+
+    // 計算農曆日期（初一顯示月份名稱，其他顯示日）
+    String? lunarDayText;
+    if (showLunar) {
+      final solar = Solar.fromDate(day);
+      final lunar = solar.getLunar();
+      // 初一顯示月份名稱（如：正月、二月），其他顯示日（如：初二、十五）
+      if (lunar.getDay() == 1) {
+        lunarDayText = lunar.getMonthInChinese();
+      } else {
+        lunarDayText = lunar.getDayInChinese();
+      }
+    }
+
+    // 計算日期區域總高度
+    final totalDateHeight = showLunar
+        ? dateNumberHeight + lunarTextHeight
+        : dateNumberHeight;
+
+    return DragTarget<EventDragData>(
+      onWillAcceptWithDetails: (details) {
+        // 接受所有行程拖曳
+        return true;
+      },
+      onAcceptWithDetails: (details) {
+        // 行程被放置到此日期
+        if (onEventDrop != null) {
+          onEventDrop!(details.data.event, details.data.sourceDate, day);
+        }
+      },
+      builder: (context, candidateData, rejectedData) {
+        // 當有行程拖曳到此日期時高亮顯示
+        final isHovering = candidateData.isNotEmpty;
+
+        return GestureDetector(
+          onTap: () => onDaySelected(day),
+          child: Container(
+            margin: const EdgeInsets.all(1),
+            clipBehavior: Clip.hardEdge,
+            decoration: BoxDecoration(
+              color: isHovering
+                  ? Colors.blue.withOpacity(0.2)
+                  : containerBackgroundColor,
+              borderRadius: BorderRadius.circular(6),
+              border: isHovering
+                  ? Border.all(color: Colors.blue, width: 2)
+                  : null,
+            ),
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 日期數字區域（不再顯示節日名稱，節日將作為行程顯示）
+            // 日期數字區域（含農曆）
             SizedBox(
-              height: dateNumberHeight,
-              child: Center(
-                child: isToday
-                    ? Container(
-                        width: 20,
-                        height: 20,
-                        decoration: const BoxDecoration(
-                          color: Colors.black,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
+              height: totalDateHeight,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 西曆日期
+                  isToday
+                      ? Container(
+                          width: 20,
+                          height: 20,
+                          decoration: const BoxDecoration(
+                            color: Colors.black,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : Text(
                           '${day.day}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            // 國定假日或傳統節日日期數字顯示紅色
+                            color: hasNationalOrTraditionalHoliday && !isOutside
+                                ? Colors.red
+                                : textColor,
                           ),
                         ),
-                      )
-                    : Text(
-                        '${day.day}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          // 國定假日或傳統節日日期數字顯示紅色
-                          color: hasNationalOrTraditionalHoliday && !isOutside
-                              ? Colors.red
-                              : textColor,
-                        ),
+                  // 農曆日期
+                  if (showLunar && lunarDayText != null)
+                    Text(
+                      lunarDayText,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: isOutside ? Colors.grey[400] : Colors.grey[600],
+                        height: 1.2,
                       ),
+                    ),
+                ],
               ),
             ),
-            
+
             // 事件區域（跨日事件由上層 Stack 繪製，這裡繪製節日和單日事件）
             Expanded(
               child: Padding(
@@ -237,10 +326,13 @@ class DayCell extends StatelessWidget {
                             right: 0,
                             top: slotIndexUsed * (eventItemHeight + eventItemGap),
                             height: eventItemHeight - 1,
-                            child: _SingleDayEventItem(
+                            child: _DraggableSingleDayEventItem(
                               event: event,
                               isOutside: isOutside,
                               rowAllocation: rowAllocation,
+                              sourceDate: day,
+                              onDragStarted: onDragStarted,
+                              onDragEnded: onDragEnded,
                             ),
                           ),
                         );
@@ -286,6 +378,8 @@ class DayCell extends StatelessWidget {
           ],
         ),
       ),
+        );
+      },
     );
   }
 }
@@ -331,8 +425,80 @@ class _HolidayEventItem extends StatelessWidget {
   }
 }
 
+/// 可拖曳的單日事件項目元件
+///
+/// 使用 LongPressDraggable 包裝 _SingleDayEventItem
+/// 長按後可以拖曳到其他日期
+class _DraggableSingleDayEventItem extends StatelessWidget {
+  final CalendarEvent event;
+  final bool isOutside;
+  final Map<String, int> rowAllocation;
+  final DateTime sourceDate;
+  final VoidCallback? onDragStarted;
+  final VoidCallback? onDragEnded;
+
+  const _DraggableSingleDayEventItem({
+    required this.event,
+    required this.isOutside,
+    required this.rowAllocation,
+    required this.sourceDate,
+    this.onDragStarted,
+    this.onDragEnded,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final eventColor = CalendarUtils.getEventColor(event, rowAllocation);
+
+    return LongPressDraggable<EventDragData>(
+      data: EventDragData(event: event, sourceDate: sourceDate),
+      delay: const Duration(milliseconds: 300),
+      hapticFeedbackOnStart: true,
+      onDragStarted: onDragStarted,
+      onDragEnd: (_) => onDragEnded?.call(),
+      // 拖曳時顯示的預覽
+      feedback: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          width: 120,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: eventColor,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            event.title,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+      // 拖曳時原位置顯示的佔位符
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: _SingleDayEventItem(
+          event: event,
+          isOutside: isOutside,
+          rowAllocation: rowAllocation,
+        ),
+      ),
+      child: _SingleDayEventItem(
+        event: event,
+        isOutside: isOutside,
+        rowAllocation: rowAllocation,
+      ),
+    );
+  }
+}
+
 /// 單日事件項目元件
-/// 
+///
 /// 純顯示元件，不處理點擊事件
 /// 點擊事件由父層 DayCell 的 GestureDetector 統一處理
 /// 點擊後會開啟日期列表，而不是直接進入編輯
@@ -364,18 +530,35 @@ class _SingleDayEventItem extends StatelessWidget {
       ),
       // 文字置中顯示
       alignment: Alignment.center,
-      child: Text(
-        event.title,
-        style: TextStyle(
-          fontSize: 10,
-          color: isOutside ? Colors.grey[500] : Colors.white,
-          fontWeight: FontWeight.w500,
-          height: 1.2,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        // 文字置中對齊
-        textAlign: TextAlign.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 重複行程標記
+          if (event.isRecurring)
+            Padding(
+              padding: const EdgeInsets.only(right: 2),
+              child: Icon(
+                Icons.repeat,
+                size: 8,
+                color: isOutside ? Colors.grey[500] : Colors.white,
+              ),
+            ),
+          Flexible(
+            child: Text(
+              event.title,
+              style: TextStyle(
+                fontSize: 10,
+                color: isOutside ? Colors.grey[500] : Colors.white,
+                fontWeight: FontWeight.w500,
+                height: 1.2,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
   }
