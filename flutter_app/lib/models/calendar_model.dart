@@ -38,6 +38,13 @@ class CalendarModel {
   /// 行事曆專屬設定
   final CalendarSettings settings;
 
+  /// 成員 ID 列表（不含擁有者）
+  final List<String> members;
+
+  /// 成員暱稱對照表（userId -> nickname）
+  /// 每個成員可以設定專屬於此行事曆的暱稱
+  final Map<String, String> memberNicknames;
+
   CalendarModel({
     required this.id,
     required this.ownerId,
@@ -49,7 +56,11 @@ class CalendarModel {
     required this.updatedAt,
     this.iconName,
     CalendarSettings? settings,
-  }) : settings = settings ?? const CalendarSettings();
+    List<String>? members,
+    Map<String, String>? memberNicknames,
+  }) : settings = settings ?? const CalendarSettings(),
+       members = members ?? const [],
+       memberNicknames = memberNicknames ?? const {};
 
   /// 從 Firestore 文檔建立物件
   factory CalendarModel.fromFirestore(DocumentSnapshot doc) {
@@ -68,6 +79,11 @@ class CalendarModel {
       settings: CalendarSettings.fromJson(
         data['settings'] as Map<String, dynamic>?,
       ),
+      members: (data['members'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+      memberNicknames: (data['memberNicknames'] as Map<String, dynamic>?)
+          ?.map((key, value) => MapEntry(key, value as String)),
     );
   }
 
@@ -86,6 +102,11 @@ class CalendarModel {
       settings: CalendarSettings.fromJson(
         json['settings'] as Map<String, dynamic>?,
       ),
+      members: (json['members'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+      memberNicknames: (json['memberNicknames'] as Map<String, dynamic>?)
+          ?.map((key, value) => MapEntry(key, value as String)),
     );
   }
 
@@ -101,6 +122,8 @@ class CalendarModel {
       'updatedAt': Timestamp.fromDate(updatedAt),
       'iconName': iconName,
       'settings': settings.toJson(),
+      'members': members,
+      'memberNicknames': memberNicknames,
     };
   }
 
@@ -117,7 +140,16 @@ class CalendarModel {
       'updatedAt': updatedAt.toIso8601String(),
       'iconName': iconName,
       'settings': settings.toJson(),
+      'members': members,
+      'memberNicknames': memberNicknames,
     };
+  }
+
+  /// 取得成員在此行事曆的顯示名稱
+  ///
+  /// 優先使用暱稱，若無暱稱則使用原始名稱
+  String getMemberDisplayName(String userId, String originalName) {
+    return memberNicknames[userId] ?? originalName;
   }
 
   /// 複製物件並允許修改部分欄位
@@ -132,6 +164,8 @@ class CalendarModel {
     DateTime? updatedAt,
     String? iconName,
     CalendarSettings? settings,
+    List<String>? members,
+    Map<String, String>? memberNicknames,
   }) {
     return CalendarModel(
       id: id ?? this.id,
@@ -144,6 +178,8 @@ class CalendarModel {
       updatedAt: updatedAt ?? this.updatedAt,
       iconName: iconName ?? this.iconName,
       settings: settings ?? this.settings,
+      members: members ?? this.members,
+      memberNicknames: memberNicknames ?? this.memberNicknames,
     );
   }
 

@@ -29,6 +29,7 @@ dependencies:
 
   # 狀態管理
   flutter_riverpod: ^2.4.0
+  rxdart: ^0.28.0  # Stream 合併（用於多行事曆來源合併）
 
   # UI 組件
   table_calendar: ^3.0.9

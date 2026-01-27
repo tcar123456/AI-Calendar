@@ -4,6 +4,7 @@ import '../../../models/event_label_model.dart';
 import '../../../models/holiday_model.dart';
 import '../../../providers/calendar_provider.dart';
 import '../../../utils/constants.dart';
+import 'calendar_members_sheet.dart';
 import 'event_search_sheet.dart';
 
 /// 行事曆設定選單
@@ -73,7 +74,19 @@ class CalendarSettingsSheet extends ConsumerWidget {
               EventSearchSheet.show(context);
             },
           ),
-          
+
+          // 成員管理
+          ListTile(
+            leading: const Icon(Icons.people),
+            title: const Text('成員'),
+            subtitle: const Text('查看及管理行事曆成員'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.pop(context);
+              CalendarMembersSheet.show(context);
+            },
+          ),
+
           // 行程標籤設定
           ListTile(
             leading: const Icon(Icons.label),
@@ -135,17 +148,28 @@ class CalendarSettingsSheet extends ConsumerWidget {
           ),
 
           const Divider(height: 16),
-          
-          // 刪除行事曆
-          ListTile(
-            leading: const Icon(Icons.delete_outline, color: Colors.red),
-            title: const Text(
-              '刪除行事曆',
-              style: TextStyle(color: Colors.red),
-            ),
-            onTap: () => _showDeleteCalendarConfirm(context, ref),
+
+          // 刪除行事曆（創建者）或退出行事曆（成員）
+          Consumer(
+            builder: (context, ref, _) {
+              final isOwner = ref.watch(isCalendarOwnerProvider);
+
+              return ListTile(
+                leading: Icon(
+                  isOwner ? Icons.delete_outline : Icons.logout,
+                  color: Colors.red,
+                ),
+                title: Text(
+                  isOwner ? '刪除行事曆' : '退出行事曆',
+                  style: const TextStyle(color: Colors.red),
+                ),
+                onTap: () => isOwner
+                    ? _showDeleteCalendarConfirm(context, ref)
+                    : _showLeaveCalendarConfirm(context, ref),
+              );
+            },
           ),
-          
+
           const SizedBox(height: 16),
         ],
       ),
@@ -322,6 +346,84 @@ class CalendarSettingsSheet extends ConsumerWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => const _LabelSettingsSheet(),
+    );
+  }
+
+  /// 顯示退出行事曆確認對話框（成員用）
+  void _showLeaveCalendarConfirm(BuildContext context, WidgetRef ref) {
+    final selectedCalendar = ref.read(selectedCalendarProvider);
+
+    if (selectedCalendar == null) {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('沒有選擇的行事曆')),
+      );
+      return;
+    }
+
+    final sheetNavigator = Navigator.of(context);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('退出行事曆'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('確定要退出「${selectedCalendar.name}」嗎？'),
+            const SizedBox(height: 8),
+            Text(
+              '退出後將無法查看此行事曆的行程。',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+
+              final success = await ref
+                  .read(calendarControllerProvider.notifier)
+                  .leaveCalendar(selectedCalendar.id);
+
+              if (sheetNavigator.mounted) {
+                sheetNavigator.pop();
+              }
+
+              if (context.mounted) {
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.clearSnackBars();
+                if (success) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('已退出行事曆')),
+                  );
+                } else {
+                  final errorMessage =
+                      ref.read(calendarControllerProvider).errorMessage;
+                  messenger.showSnackBar(
+                    SnackBar(content: Text(errorMessage ?? '退出失敗，請重試')),
+                  );
+                }
+              }
+            },
+            child: const Text('退出'),
+          ),
+        ],
+      ),
     );
   }
 

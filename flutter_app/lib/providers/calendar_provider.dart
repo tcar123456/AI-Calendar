@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/calendar_model.dart';
 import '../models/calendar_settings_model.dart';
 import '../models/event_label_model.dart';
+import '../models/user_model.dart';
 import '../services/firebase_service.dart';
 import 'auth_provider.dart';
 
@@ -11,17 +13,27 @@ import 'auth_provider.dart';
 const String _kSelectedCalendarIdKey = 'selected_calendar_id';
 
 /// 用戶所有行事曆列表 Provider
-/// 
-/// 監聯當前用戶的所有行事曆
+///
+/// 監聯當前用戶擁有的行事曆和被邀請加入的行事曆
+/// 合併兩個來源並依建立時間排序
 final calendarsProvider = StreamProvider<List<CalendarModel>>((ref) {
   final userId = ref.watch(currentUserIdProvider);
-  
+
   if (userId == null) {
     return Stream.value([]);
   }
-  
+
   final firebaseService = ref.watch(firebaseServiceProvider);
-  return firebaseService.watchUserCalendars(userId);
+
+  // 合併「擁有的」和「被邀請的」行事曆
+  return Rx.combineLatest2(
+    firebaseService.watchUserCalendars(userId),
+    firebaseService.watchSharedCalendars(userId),
+    (List<CalendarModel> owned, List<CalendarModel> shared) {
+      return [...owned, ...shared]
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    },
+  );
 });
 
 /// 當前選擇的行事曆 ID Provider
@@ -86,28 +98,37 @@ class SelectedCalendarIdNotifier extends StateNotifier<String?> {
 }
 
 /// 當前選擇的行事曆 Provider
-/// 
+///
 /// 根據 selectedCalendarIdProvider 取得對應的行事曆物件
 final selectedCalendarProvider = Provider<CalendarModel?>((ref) {
   final calendars = ref.watch(calendarsProvider);
   final selectedId = ref.watch(selectedCalendarIdProvider);
-  
+
   return calendars.when(
     data: (calendarList) {
       if (calendarList.isEmpty) return null;
-      
+
       // 如果有選擇的行事曆 ID，找出對應的行事曆
       if (selectedId != null) {
         final selected = calendarList.where((c) => c.id == selectedId);
         if (selected.isNotEmpty) return selected.first;
       }
-      
+
       // 否則返回第一個行事曆
       return calendarList.first;
     },
     loading: () => null,
     error: (_, __) => null,
   );
+});
+
+/// 當前用戶是否為選擇行事曆的創建者
+///
+/// 用於 UI 判斷是否顯示「刪除行事曆」或「退出行事曆」
+final isCalendarOwnerProvider = Provider<bool>((ref) {
+  final userId = ref.watch(currentUserIdProvider);
+  final calendar = ref.watch(selectedCalendarProvider);
+  return calendar?.ownerId == userId;
 });
 
 /// 行事曆控制器 State
@@ -462,7 +483,7 @@ class CalendarController extends StateNotifier<CalendarControllerState> {
   }
 
   /// 選擇行事曆
-  /// 
+  ///
   /// 會自動儲存選擇到 SharedPreferences
   Future<void> selectCalendar(String calendarId) async {
     await _ref.read(selectedCalendarIdProvider.notifier).setCalendarId(calendarId);
@@ -471,6 +492,190 @@ class CalendarController extends StateNotifier<CalendarControllerState> {
   /// 清除訊息
   void clearMessages() {
     state = state.copyWith(clearMessages: true);
+  }
+
+  // ==================== 成員管理 ====================
+
+  /// 透過 Email 邀請成員
+  ///
+  /// [calendarId] 行事曆 ID
+  /// [email] 要邀請的成員 Email
+  Future<bool> inviteMemberByEmail(String calendarId, String email) async {
+    state = state.copyWith(isLoading: true, clearMessages: true);
+
+    final currentUserId = _ref.read(currentUserIdProvider);
+    if (currentUserId == null) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: '用戶未登入',
+      );
+      return false;
+    }
+
+    try {
+      // 透過 Email 查找用戶
+      final user = await _firebaseService.getUserByEmail(email);
+      if (user == null) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: '找不到此 Email 的用戶',
+        );
+        return false;
+      }
+
+      // 不能邀請自己
+      if (user.id == currentUserId) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: '不能邀請自己',
+        );
+        return false;
+      }
+
+      // 檢查是否為行事曆擁有者
+      final calendar = await _firebaseService.getCalendar(calendarId);
+      if (calendar == null) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: '找不到行事曆',
+        );
+        return false;
+      }
+
+      if (calendar.ownerId == user.id) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: '此用戶是行事曆擁有者',
+        );
+        return false;
+      }
+
+      // 邀請成員
+      await _firebaseService.addCalendarMember(
+        calendarId,
+        user.id,
+        currentUserId,
+      );
+
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: '成功邀請 ${user.getDisplayName()}',
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString().replaceFirst('Exception: ', ''),
+      );
+      return false;
+    }
+  }
+
+  /// 移除成員
+  ///
+  /// [calendarId] 行事曆 ID
+  /// [userId] 要移除的成員用戶 ID
+  Future<bool> removeMember(String calendarId, String userId) async {
+    state = state.copyWith(isLoading: true, clearMessages: true);
+
+    try {
+      await _firebaseService.removeCalendarMember(calendarId, userId);
+
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: '成員已移除',
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString().replaceFirst('Exception: ', ''),
+      );
+      return false;
+    }
+  }
+
+  /// 更新成員暱稱
+  ///
+  /// [calendarId] 行事曆 ID
+  /// [userId] 成員用戶 ID
+  /// [nickname] 新暱稱
+  Future<bool> updateMemberNickname(
+    String calendarId,
+    String userId,
+    String nickname,
+  ) async {
+    state = state.copyWith(isLoading: true, clearMessages: true);
+
+    try {
+      await _firebaseService.updateMemberNickname(calendarId, userId, nickname);
+
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: nickname.trim().isEmpty ? '已移除暱稱' : '暱稱已更新',
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString().replaceFirst('Exception: ', ''),
+      );
+      return false;
+    }
+  }
+
+  /// 退出行事曆（成員自行退出）
+  ///
+  /// [calendarId] 行事曆 ID
+  Future<bool> leaveCalendar(String calendarId) async {
+    state = state.copyWith(isLoading: true, clearMessages: true);
+
+    final currentUserId = _ref.read(currentUserIdProvider);
+    if (currentUserId == null) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: '用戶未登入',
+      );
+      return false;
+    }
+
+    try {
+      // 退出前先取得當前的行事曆列表，以便退出後選擇其他行事曆
+      final calendarsAsync = _ref.read(calendarsProvider);
+      final currentCalendars = calendarsAsync.valueOrNull ?? [];
+
+      await _firebaseService.leaveCalendar(calendarId, currentUserId);
+
+      // 如果退出的是當前選擇的行事曆，切換到列表中的其他行事曆
+      final selectedId = _ref.read(selectedCalendarIdProvider);
+      if (selectedId == calendarId) {
+        // 過濾掉剛退出的行事曆，取得剩餘的行事曆
+        final remainingCalendars = currentCalendars
+            .where((c) => c.id != calendarId)
+            .toList();
+
+        if (remainingCalendars.isNotEmpty) {
+          await _ref
+              .read(selectedCalendarIdProvider.notifier)
+              .setCalendarId(remainingCalendars.first.id);
+        } else {
+          await _ref.read(selectedCalendarIdProvider.notifier).clear();
+        }
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: '已退出行事曆',
+      );
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString().replaceFirst('Exception: ', ''),
+      );
+      return false;
+    }
   }
 }
 
@@ -542,5 +747,19 @@ final effectiveShowLunarProvider = Provider<bool>((ref) {
     final settings = ref.watch(selectedCalendarSettingsProvider);
     return settings.showLunar;
   }
+});
+
+/// 當前選擇行事曆的成員列表 Provider
+///
+/// 回傳包含擁有者和所有成員的用戶資料列表
+final calendarMembersProvider = StreamProvider<List<UserModel>>((ref) {
+  final calendar = ref.watch(selectedCalendarProvider);
+
+  if (calendar == null) {
+    return Stream.value([]);
+  }
+
+  final firebaseService = ref.watch(firebaseServiceProvider);
+  return firebaseService.watchCalendarMemberUsers(calendar.id);
 });
 

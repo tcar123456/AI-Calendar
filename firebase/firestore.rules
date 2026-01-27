@@ -1,29 +1,38 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // ==================== 輔助函數 ====================
-    
+
     // 檢查用戶是否已登入
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     // 檢查是否為文檔擁有者
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
+
     // 檢查是否為資源擁有者
     function isResourceOwner() {
       return isSignedIn() && request.auth.uid == resource.data.userId;
     }
-    
+
+    // 檢查是否可存取指定行事曆（創建者或成員）
+    function canAccessCalendar(calendarId) {
+      let cal = get(/databases/$(database)/documents/calendars/$(calendarId)).data;
+      return request.auth.uid == cal.ownerId ||
+             request.auth.uid in cal.members;
+    }
+
     // ==================== Users Collection ====================
-    
-    // 用戶只能讀寫自己的資料
+
+    // 用戶資料存取規則
+    // - 所有已登入用戶可讀取（用於邀請成員時透過 Email 查詢）
+    // - 只能建立/更新/刪除自己的資料
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isSignedIn();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
       allow delete: if isOwner(userId);
@@ -31,61 +40,105 @@ service cloud.firestore {
     
     // ==================== Events Collection ====================
 
-    // 用戶只能讀寫自己的行程
+    // 行程存取規則
+    // - 創建者或行事曆成員都可讀取/編輯/刪除
     // 重複行程相關欄位（可選）：isMasterEvent, recurrenceRule, masterEventId, originalDate, isException
     match /events/{eventId} {
-      // 允許建立行程（必須設定 userId 為當前用戶）
-      // 重複行程欄位為可選，確保向後相容
+      // 檢查是否可存取行程的行事曆
+      function canAccessEventCalendar() {
+        return resource.data.calendarId != null &&
+               canAccessCalendar(resource.data.calendarId);
+      }
+
+      // 檢查建立時是否可存取目標行事曆
+      function canAccessNewEventCalendar() {
+        return request.resource.data.calendarId != null &&
+               canAccessCalendar(request.resource.data.calendarId);
+      }
+
+      // 允許建立行程（本人或行事曆成員）
       allow create: if isSignedIn() &&
-                       request.resource.data.userId == request.auth.uid &&
                        request.resource.data.keys().hasAll([
                          'userId', 'title', 'startTime', 'endTime',
                          'createdAt', 'updatedAt', 'metadata'
-                       ]);
-      
-      // 允許讀取自己的行程
-      allow read: if isResourceOwner();
-      
-      // 允許更新自己的行程（不能更改 userId 和 createdAt）
-      allow update: if isResourceOwner() &&
-                       request.resource.data.userId == resource.data.userId &&
+                       ]) &&
+                       (request.resource.data.userId == request.auth.uid ||
+                        canAccessNewEventCalendar());
+
+      // 允許讀取（創建者或行事曆成員）
+      allow read: if isResourceOwner() || canAccessEventCalendar();
+
+      // 允許更新（創建者或行事曆成員，不能更改 createdAt）
+      allow update: if (isResourceOwner() || canAccessEventCalendar()) &&
                        request.resource.data.createdAt == resource.data.createdAt;
-      
-      // 允許刪除自己的行程
-      allow delete: if isResourceOwner();
+
+      // 允許刪除（創建者或行事曆成員）
+      allow delete: if isResourceOwner() || canAccessEventCalendar();
     }
     
     // ==================== Calendars Collection ====================
-    
-    // 用戶只能讀寫自己的行事曆
+
+    // 行事曆存取規則（支援多人共用）
+    // - 創建者擁有所有權限
+    // - 成員可讀取、編輯行事曆設定、邀請成員
+    // - 只有創建者可刪除行事曆和移除成員
     match /calendars/{calendarId} {
-      // 檢查是否為行事曆擁有者（使用 ownerId 而非 userId）
+      // 檢查是否為行事曆創建者
       function isCalendarOwner() {
         return isSignedIn() && request.auth.uid == resource.data.ownerId;
       }
-      
+
+      // 檢查是否為行事曆成員
+      function isCalendarMember() {
+        return isSignedIn() && request.auth.uid in resource.data.members;
+      }
+
       // 允許建立行事曆（必須設定 ownerId 為當前用戶）
-      allow create: if isSignedIn() && 
+      allow create: if isSignedIn() &&
                        request.resource.data.ownerId == request.auth.uid &&
                        request.resource.data.keys().hasAll([
                          'ownerId', 'name', 'colorValue', 'isDefault',
                          'createdAt', 'updatedAt'
                        ]);
-      
-      // 允許讀取自己的行事曆
-      allow read: if isCalendarOwner();
-      
-      // 允許更新自己的行事曆（不能更改 ownerId 和 createdAt）
-      allow update: if isCalendarOwner() &&
+
+      // 允許讀取（創建者或成員）
+      allow read: if isCalendarOwner() || isCalendarMember();
+
+      // 允許更新（創建者或成員，不能更改 ownerId 和 createdAt）
+      allow update: if (isCalendarOwner() || isCalendarMember()) &&
                        request.resource.data.ownerId == resource.data.ownerId &&
                        request.resource.data.createdAt == resource.data.createdAt;
-      
-      // 允許刪除自己的行事曆
+
+      // 只有創建者可刪除
       allow delete: if isCalendarOwner();
     }
     
+    // ==================== CalendarMembers Collection ====================
+
+    // 行事曆成員記錄存取規則
+    // - 可存取行事曆的用戶可讀取成員記錄
+    // - 創建者或成員都可邀請新成員
+    // - 創建者可移除任何成員，成員可自行退出
+    match /calendarMembers/{memberId} {
+      // 允許讀取（可存取該行事曆的用戶）
+      allow read: if isSignedIn() &&
+                     canAccessCalendar(resource.data.calendarId);
+
+      // 允許建立（創建者或成員都可邀請）
+      allow create: if isSignedIn() &&
+                       canAccessCalendar(request.resource.data.calendarId);
+
+      // 允許刪除（創建者移除成員，或成員自行退出）
+      allow delete: if isSignedIn() && (
+                       // 成員自行退出
+                       resource.data.userId == request.auth.uid ||
+                       // 創建者移除成員
+                       get(/databases/$(database)/documents/calendars/$(resource.data.calendarId)).data.ownerId == request.auth.uid
+                     );
+    }
+
     // ==================== Memos Collection ====================
-    
+
     // 用戶只能讀寫自己的備忘錄
     match /memos/{memoId} {
       // 允許建立備忘錄（必須設定 userId 為當前用戶）

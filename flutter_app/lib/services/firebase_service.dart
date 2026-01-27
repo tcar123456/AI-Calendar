@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../models/calendar_member_model.dart';
 import '../models/calendar_model.dart';
 import '../models/event_model.dart';
 import '../models/memo_model.dart';
@@ -863,12 +864,23 @@ class FirebaseService {
     return CalendarModel.fromFirestore(doc);
   }
 
-  /// 取得用戶的所有行事曆
+  /// 取得用戶擁有的行事曆
   Stream<List<CalendarModel>> watchUserCalendars(String userId) {
     return _firestore
         .collection(kCalendarsCollection)
         .where('ownerId', isEqualTo: userId)
         .orderBy('createdAt')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => CalendarModel.fromFirestore(doc))
+            .toList());
+  }
+
+  /// 取得用戶被邀請加入的行事曆（共享行事曆）
+  Stream<List<CalendarModel>> watchSharedCalendars(String userId) {
+    return _firestore
+        .collection(kCalendarsCollection)
+        .where('members', arrayContains: userId)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => CalendarModel.fromFirestore(doc))
@@ -945,6 +957,205 @@ class FirebaseService {
     );
     
     await batch.commit();
+  }
+
+  // ==================== 成員管理相關 ====================
+
+  /// 透過 Email 查找用戶
+  ///
+  /// [email] 要查找的電子郵件地址
+  ///
+  /// 回傳：用戶資料，若找不到則回傳 null
+  Future<UserModel?> getUserByEmail(String email) async {
+    final snapshot = await _firestore
+        .collection(kUsersCollection)
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) return null;
+    return UserModel.fromFirestore(snapshot.docs.first);
+  }
+
+  /// 邀請成員加入行事曆
+  ///
+  /// [calendarId] 行事曆 ID
+  /// [userId] 要邀請的用戶 ID
+  /// [invitedBy] 邀請者用戶 ID
+  ///
+  /// 回傳：成員記錄 ID
+  Future<String> addCalendarMember(
+    String calendarId,
+    String userId,
+    String invitedBy,
+  ) async {
+    // 檢查是否已經是成員
+    final existingMember = await _firestore
+        .collection(kCalendarMembersCollection)
+        .where('calendarId', isEqualTo: calendarId)
+        .where('userId', isEqualTo: userId)
+        .limit(1)
+        .get();
+
+    if (existingMember.docs.isNotEmpty) {
+      throw Exception('此用戶已經是行事曆成員');
+    }
+
+    // 建立成員記錄
+    final member = CalendarMember(
+      id: '',
+      calendarId: calendarId,
+      userId: userId,
+      role: MemberRole.editor,
+      invitedBy: invitedBy,
+      joinedAt: DateTime.now(),
+    );
+
+    final docRef = await _firestore
+        .collection(kCalendarMembersCollection)
+        .add(member.toFirestore());
+
+    // 同時更新行事曆的 members 列表
+    await _firestore.collection(kCalendarsCollection).doc(calendarId).update({
+      'members': FieldValue.arrayUnion([userId]),
+    });
+
+    return docRef.id;
+  }
+
+  /// 移除行事曆成員
+  ///
+  /// [calendarId] 行事曆 ID
+  /// [userId] 要移除的成員用戶 ID
+  Future<void> removeCalendarMember(String calendarId, String userId) async {
+    // 查找成員記錄
+    final memberSnapshot = await _firestore
+        .collection(kCalendarMembersCollection)
+        .where('calendarId', isEqualTo: calendarId)
+        .where('userId', isEqualTo: userId)
+        .limit(1)
+        .get();
+
+    if (memberSnapshot.docs.isEmpty) {
+      throw Exception('找不到此成員');
+    }
+
+    final batch = _firestore.batch();
+
+    // 刪除成員記錄
+    batch.delete(memberSnapshot.docs.first.reference);
+
+    // 從行事曆的 members 列表移除
+    batch.update(_firestore.collection(kCalendarsCollection).doc(calendarId), {
+      'members': FieldValue.arrayRemove([userId]),
+    });
+
+    // 移除成員暱稱
+    batch.update(_firestore.collection(kCalendarsCollection).doc(calendarId), {
+      'memberNicknames.$userId': FieldValue.delete(),
+    });
+
+    await batch.commit();
+  }
+
+  /// 退出行事曆（成員自行退出）
+  ///
+  /// [calendarId] 行事曆 ID
+  /// [userId] 要退出的用戶 ID（通常為當前用戶）
+  Future<void> leaveCalendar(String calendarId, String userId) async {
+    // 與 removeCalendarMember 相同邏輯，但由成員自己呼叫
+    await removeCalendarMember(calendarId, userId);
+  }
+
+  /// 取得行事曆的成員列表
+  ///
+  /// [calendarId] 行事曆 ID
+  ///
+  /// 回傳：成員記錄列表的 Stream
+  Stream<List<CalendarMember>> watchCalendarMembers(String calendarId) {
+    return _firestore
+        .collection(kCalendarMembersCollection)
+        .where('calendarId', isEqualTo: calendarId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => CalendarMember.fromFirestore(doc))
+            .toList());
+  }
+
+  /// 取得多個用戶的資料
+  ///
+  /// [userIds] 用戶 ID 列表
+  ///
+  /// 回傳：用戶資料列表
+  Future<List<UserModel>> getUsersByIds(List<String> userIds) async {
+    if (userIds.isEmpty) return [];
+
+    // Firestore whereIn 限制最多 10 個元素，需要分批查詢
+    final List<UserModel> users = [];
+    const batchSize = 10;
+
+    for (var i = 0; i < userIds.length; i += batchSize) {
+      final end = (i + batchSize < userIds.length) ? i + batchSize : userIds.length;
+      final batchIds = userIds.sublist(i, end);
+
+      final snapshot = await _firestore
+          .collection(kUsersCollection)
+          .where(FieldPath.documentId, whereIn: batchIds)
+          .get();
+
+      users.addAll(snapshot.docs.map((doc) => UserModel.fromFirestore(doc)));
+    }
+
+    return users;
+  }
+
+  /// 更新成員暱稱
+  ///
+  /// [calendarId] 行事曆 ID
+  /// [userId] 成員用戶 ID
+  /// [nickname] 新暱稱（若為空字串則移除暱稱）
+  Future<void> updateMemberNickname(
+    String calendarId,
+    String userId,
+    String nickname,
+  ) async {
+    final trimmedNickname = nickname.trim();
+
+    if (trimmedNickname.isEmpty) {
+      // 移除暱稱
+      await _firestore.collection(kCalendarsCollection).doc(calendarId).update({
+        'memberNicknames.$userId': FieldValue.delete(),
+      });
+    } else {
+      // 設定暱稱
+      await _firestore.collection(kCalendarsCollection).doc(calendarId).update({
+        'memberNicknames.$userId': trimmedNickname,
+      });
+    }
+  }
+
+  /// 監聯行事曆成員的用戶資料
+  ///
+  /// [calendarId] 行事曆 ID
+  ///
+  /// 回傳：成員用戶資料列表的 Stream
+  Stream<List<UserModel>> watchCalendarMemberUsers(String calendarId) {
+    return _firestore
+        .collection(kCalendarsCollection)
+        .doc(calendarId)
+        .snapshots()
+        .asyncMap((doc) async {
+      if (!doc.exists) return <UserModel>[];
+
+      final data = doc.data() as Map<String, dynamic>;
+      final ownerId = data['ownerId'] as String;
+      final memberIds =
+          (data['members'] as List<dynamic>?)?.cast<String>() ?? [];
+
+      // 包含擁有者和所有成員
+      final allUserIds = [ownerId, ...memberIds];
+      return getUsersByIds(allUserIds);
+    });
   }
 
   // ==================== 工具方法 ====================

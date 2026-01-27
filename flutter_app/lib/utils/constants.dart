@@ -29,6 +29,9 @@ const String kMemosCollection = 'memos';
 /// 行事曆集合
 const String kCalendarsCollection = 'calendars';
 
+/// 行事曆成員集合
+const String kCalendarMembersCollection = 'calendarMembers';
+
 // ==================== Storage 路徑 ====================
 
 /// 語音檔案儲存路徑格式：voice_recordings/{userId}/{timestamp}.m4a
