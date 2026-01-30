@@ -127,251 +127,11 @@ class Holiday {
   }
 }
 
-/// 台灣節日資料
-/// 
-/// 包含國定假日、傳統節日、紀念日等
-/// 註：僅收錄台灣特有的節日，不包含西洋節日
-class TaiwanHolidays {
-  /// 固定日期的節日列表
-  static const List<Holiday> fixedHolidays = [
-    // ========== 國定假日（放假） ==========
-    Holiday(
-      name: '元旦',
-      month: 1,
-      day: 1,
-      type: HolidayType.national,
-      isOffDay: true,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '和平紀念日',
-      month: 2,
-      day: 28,
-      type: HolidayType.national,
-      isOffDay: true,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '兒童節',
-      month: 4,
-      day: 4,
-      type: HolidayType.national,
-      isOffDay: true,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '國慶日',
-      month: 10,
-      day: 10,
-      type: HolidayType.national,
-      isOffDay: true,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '行憲紀念日',
-      month: 12,
-      day: 25,
-      type: HolidayType.national,
-      isOffDay: false, // 現已不放假
-      region: HolidayRegion.taiwan,
-    ),
-    
-    // ========== 傳統節日 ==========
-    // 註：農曆節日的日期會隨年份變動，這裡使用 2026 年的日期作為示例
-    Holiday(
-      name: '除夕',
-      month: 1,
-      day: 29, // 2026 年農曆除夕
-      type: HolidayType.traditional,
-      isOffDay: true,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '春節',
-      month: 1,
-      day: 30, // 2026 年農曆初一
-      type: HolidayType.traditional,
-      isOffDay: true,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '元宵節',
-      month: 2,
-      day: 12, // 2026 年農曆正月十五
-      type: HolidayType.traditional,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '清明節',
-      month: 4,
-      day: 5,
-      type: HolidayType.traditional,
-      isOffDay: true,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '端午節',
-      month: 5,
-      day: 31, // 2026 年農曆五月五日
-      type: HolidayType.traditional,
-      isOffDay: true,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '七夕',
-      month: 8,
-      day: 19, // 2026 年農曆七月七日
-      type: HolidayType.traditional,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '中元節',
-      month: 8,
-      day: 27, // 2026 年農曆七月十五
-      type: HolidayType.traditional,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '中秋節',
-      month: 10,
-      day: 3, // 2026 年農曆八月十五
-      type: HolidayType.traditional,
-      isOffDay: true,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '重陽節',
-      month: 10,
-      day: 18, // 2026 年農曆九月九日
-      type: HolidayType.traditional,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '冬至',
-      month: 12,
-      day: 21, // 每年約在 12/21-22
-      type: HolidayType.traditional,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    
-    // ========== 台灣特有節日 ==========
-    Holiday(
-      name: '勞動節',
-      month: 5,
-      day: 1,
-      type: HolidayType.national,
-      isOffDay: true, // 勞工放假
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '母親節',
-      month: 5,
-      day: 11, // 2026 年 5 月第二個週日
-      type: HolidayType.memorial,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '父親節',
-      month: 8,
-      day: 8,
-      type: HolidayType.memorial,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    
-    // ========== 紀念日 ==========
-    Holiday(
-      name: '婦女節',
-      month: 3,
-      day: 8,
-      type: HolidayType.memorial,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '植樹節',
-      month: 3,
-      day: 12,
-      type: HolidayType.memorial,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '青年節',
-      month: 3,
-      day: 29,
-      type: HolidayType.memorial,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '教師節',
-      month: 9,
-      day: 28,
-      type: HolidayType.memorial,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '光復節',
-      month: 10,
-      day: 25,
-      type: HolidayType.memorial,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-    Holiday(
-      name: '跨年夜',
-      month: 12,
-      day: 31,
-      type: HolidayType.memorial,
-      isOffDay: false,
-      region: HolidayRegion.taiwan,
-    ),
-  ];
-  
-  /// 取得指定日期的節日
-  /// 
-  /// 如果該日期有節日則返回節日資料，否則返回 null
-  static Holiday? getHolidayForDate(DateTime date) {
-    for (final holiday in fixedHolidays) {
-      if (holiday.isOnDate(date)) {
-        return holiday;
-      }
-    }
-    return null;
-  }
-  
-  /// 取得指定月份的所有節日
-  static List<Holiday> getHolidaysForMonth(int month) {
-    return fixedHolidays.where((h) => h.month == month).toList();
-  }
-  
-  /// 取得指定年份的所有節日（帶日期）
-  /// 
-  /// 返回 Map<DateTime, Holiday>，方便快速查詢
-  static Map<DateTime, Holiday> getHolidaysForYear(int year) {
-    final Map<DateTime, Holiday> holidays = {};
-    
-    for (final holiday in fixedHolidays) {
-      final date = DateTime(year, holiday.month, holiday.day);
-      holidays[date] = holiday;
-    }
-    
-    return holidays;
-  }
-}
 
 /// 節日管理工具類別
 ///
 /// 提供根據地區取得節日的統一介面
-/// 支援動態快取與靜態資料回退
+/// 節日資料在首次啟動時從 API 下載並永久快取
 class HolidayManager {
   /// 動態節日快取（按年份儲存）
   ///
@@ -399,9 +159,7 @@ class HolidayManager {
   ///
   /// [date] 要查詢的日期
   /// [regionIds] 地區 ID 列表（例如：['taiwan', 'japan']）
-  /// 返回該日期的所有節日列表
-  ///
-  /// 優先從動態快取取得，若無快取則回退到靜態資料
+  /// 返回該日期的所有節日列表（若該年份尚未下載則返回空列表）
   static List<Holiday> getHolidaysForDate(DateTime date, List<String> regionIds) {
     final holidays = <Holiday>[];
 
@@ -423,11 +181,11 @@ class HolidayManager {
 
   /// 從快取中取得指定日期的節日
   ///
-  /// 優先使用動態快取，若無則使用靜態資料
+  /// 從動態快取取得，若該年份尚未下載則返回 null
   static Holiday? _getHolidayForDateFromCache(DateTime date) {
     final year = date.year;
 
-    // 1. 優先從動態快取取得
+    // 從動態快取取得（首次啟動時會從 API 下載並永久快取）
     if (_dynamicCache.containsKey(year)) {
       final holidays = _dynamicCache[year]!;
       for (final holiday in holidays) {
@@ -435,11 +193,10 @@ class HolidayManager {
           return holiday;
         }
       }
-      return null;
     }
 
-    // 2. 回退到靜態資料
-    return TaiwanHolidays.getHolidayForDate(date);
+    // 該年份尚未下載，返回 null
+    return null;
   }
 
   /// 根據地區 ID 列表取得指定日期的第一個節日
@@ -452,7 +209,7 @@ class HolidayManager {
 
   /// 取得指定年份的所有節日
   ///
-  /// 優先從動態快取取得，若無則使用靜態資料
+  /// 從動態快取取得，若該年份尚未下載則返回空列表
   static List<Holiday> getHolidaysForYear(int year, List<String> regionIds) {
     final holidays = <Holiday>[];
 
@@ -461,13 +218,11 @@ class HolidayManager {
       if (region == null || !region.isImplemented) continue;
 
       if (region == HolidayRegion.taiwan) {
-        // 優先使用動態快取
+        // 從動態快取取得（首次啟動時會從 API 下載並永久快取）
         if (_dynamicCache.containsKey(year)) {
           holidays.addAll(_dynamicCache[year]!);
-        } else {
-          // 回退到靜態資料
-          holidays.addAll(TaiwanHolidays.fixedHolidays);
         }
+        // 若該年份尚未下載，返回空列表（UI 會在資料載入後更新）
       }
     }
 

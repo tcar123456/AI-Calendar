@@ -28,6 +28,8 @@ final themeDataProvider = Provider.family<ThemeData, BuildContext>((ref, context
 
 /// 建立淺色主題（預設）
 ThemeData _buildLightTheme(BuildContext context) {
+  // 使用 ThemeData.light() 的 textTheme 作為基礎，確保與深色主題的 inherit 值一致
+  final baseTextTheme = ThemeData.light().textTheme;
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
@@ -43,9 +45,7 @@ ThemeData _buildLightTheme(BuildContext context) {
       onError: Colors.white,
     ),
     scaffoldBackgroundColor: Colors.white,
-    textTheme: GoogleFonts.notoSansTextTheme(
-      Theme.of(context).textTheme,
-    ),
+    textTheme: GoogleFonts.notoSansTextTheme(baseTextTheme),
     appBarTheme: AppBarTheme(
       centerTitle: true,
       elevation: 0,
@@ -145,7 +145,7 @@ ThemeData _buildLightTheme(BuildContext context) {
   );
 }
 
-/// 建立深色主題（黑夜模式）
+/// 建立深色主題
 ThemeData _buildDarkTheme(BuildContext context) {
   return ThemeData(
     useMaterial3: true,

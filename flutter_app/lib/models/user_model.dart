@@ -176,7 +176,7 @@ class UserSettings {
   String getThemeModeDisplayName() {
     const themeModeDisplayNames = <String, String>{
       'light': '預設',
-      'dark': '黑夜',
+      'dark': '深色模式',
     };
 
     return themeModeDisplayNames[themeMode] ?? '預設';

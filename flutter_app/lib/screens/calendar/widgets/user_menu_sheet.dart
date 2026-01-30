@@ -278,33 +278,18 @@ class _UserMenuSheetState extends ConsumerState<UserMenuSheet> {
     // 點擊區域可進入個人資料編輯頁面
     return InkWell(
       onTap: () {
-        // 保存必要的數據和 Navigator（在 pop 之前）
+        // 保存 Navigator（在 pop 之前）
         final navigator = Navigator.of(context);
-        final onSettings = widget.onSettings;
-        final onSignOut = widget.onSignOut;
 
         // 關閉底部選單
         Navigator.pop(context);
 
-        // 導航至個人資料編輯頁面，並在返回後重新打開用戶選單
+        // 導航至個人資料編輯頁面
         navigator.push(
           MaterialPageRoute(
             builder: (context) => ProfileEditScreen(user: user),
           ),
-        ).then((_) {
-          // 檢查用戶是否仍然登入（避免登出後仍彈出面板）
-          final firebaseService = FirebaseService();
-          if (firebaseService.currentUser == null) {
-            return; // 用戶已登出，不重新打開選單
-          }
-
-          // 返回時重新打開用戶選單
-          UserMenuSheet.show(
-            context: navigator.context,
-            onSettings: onSettings,
-            onSignOut: onSignOut,
-          );
-        });
+        );
       },
       borderRadius: BorderRadius.circular(8),
       child: Padding(

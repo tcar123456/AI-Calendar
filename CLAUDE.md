@@ -152,6 +152,7 @@ Zeabur API (FastAPI Python) → OpenAI APIs
 - **Auth Flow**: `authStateProvider` → `currentUserIdProvider` → `userDataProvider`
 - **Event Flow**: `authState` → `allEventsProvider` → `eventsProvider` (依行事曆篩選)
 - **Voice Flow**: `voiceServiceProvider` → `isRecordingProvider` + `voiceProcessingRecordProvider`
+- **Theme Flow**: `currentUserDataProvider` → `themeModeProvider` → `themeDataProvider`
 - **Controllers**: `StateNotifierProvider` 處理狀態變更 (`authControllerProvider`, `eventControllerProvider`, `voiceControllerProvider`)
 
 **核心模式：**
@@ -202,12 +203,17 @@ Zeabur API (FastAPI Python) → OpenAI APIs
   - `auth_provider.dart`: 認證狀態 + 用戶資料串流
   - `event_provider.dart`: Event CRUD + 篩選邏輯
   - `voice_provider.dart`: 錄音狀態 + 處理狀態
+  - `theme_provider.dart`: 主題模式管理（預設/深色模式）
 - `lib/services/firebase_service.dart`: 所有 Firebase 操作 (Firestore, Auth, Storage)
 - `lib/services/voice_service.dart`: 跨平台音訊錄製
+- `lib/services/recurrence_service.dart`: 重複行程計算邏輯
+- `lib/theme/app_colors.dart`: 語意化顏色系統（深淺色主題統一定義）
 - `lib/models/`: 領域模型與 Firestore 序列化
-  - `calendar_event.dart`: Event 模型 + EventMetadata (追蹤是否為語音建立)
-  - `voice_processing_record.dart`: AI 處理狀態追蹤
+  - `event_model.dart`: Event 模型 + EventMetadata (追蹤是否為語音建立)
+  - `voice_processing_model.dart`: AI 處理狀態追蹤
   - `calendar_model.dart`: 多行事曆支援
+  - `recurrence_rule.dart`: 重複規則定義
+  - `user_model.dart`: 用戶設定（含外觀模式 themeMode）
 
 **Firebase Functions:**
 - `functions/src/voiceHandler.ts`: 監聽 voiceProcessing collection onCreate，呼叫 Zeabur API
@@ -490,8 +496,8 @@ GPT 服務使用 temperature 0.3 和詳細的系統提示（見 `zeabur_api/app/
 ## 已知限制
 
 1. **排程通知**：需要 Cloud Scheduler 整合（尚未實作）
-2. **週期性行程**：尚不支援重複行程（每日/每週/每月）
-3. **行程分享**：尚無多人協作功能
+2. **週期性行程**：已實作基本重複規則模型和服務，UI 設定頁面已完成
+3. **行程分享**：已實作行事曆成員模型，共用功能開發中
 4. **離線模式**：無本地快取，需要網路連線
 5. **行事曆匯入/匯出**：尚不支援 iCal
 6. **語音編輯**：無法用語音編輯現有行程（僅能建立）

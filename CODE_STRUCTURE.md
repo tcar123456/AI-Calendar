@@ -31,11 +31,14 @@ AI calendar/
 | 文件 | 說明 |
 |------|------|
 | `calendar_model.dart` | **行事曆模型** - 定義行事曆結構（ID、擁有者、名稱、顏色、預設標記等），支援多行事曆功能，包含 Firestore 序列化方法 |
+| `calendar_member_model.dart` | **行事曆成員模型** - 定義行事曆成員結構，支援共用行事曆功能，包含成員角色（擁有者/編輯者/檢視者）、邀請狀態等 |
+| `calendar_settings_model.dart` | **行事曆設定模型** - 定義行事曆相關設定結構 |
 | `event_model.dart` | **行程模型** - 定義行程結構（標題、時間、地點、提醒、標籤等），包含 `EventMetadata` 子類別記錄建立方式（語音/手動），提供跨日行程判斷方法 |
 | `event_label_model.dart` | **行程標籤模型** - 定義 12 種預設行程標籤（工作、重要、個人、家庭等），每個標籤包含顏色和名稱，支援用戶自訂 |
 | `holiday_model.dart` | **節日模型** - 定義節日資料結構，目前實作台灣地區節日（國定假日、傳統節日、紀念日），包含 `TaiwanHolidays` 靜態資料和 `HolidayManager` 管理類別 |
 | `memo_model.dart` | **備忘錄模型** - 定義備忘錄結構（標題、內容、完成狀態、釘選、提醒時間、優先級等） |
-| `user_model.dart` | **用戶模型** - 定義用戶資料結構（ID、Email、顯示名稱、大頭照、FCM Token），包含 `UserSettings` 子類別儲存個人偏好（提醒時間、語言、時區、節日顯示設定等） |
+| `recurrence_rule.dart` | **重複規則模型** - 定義行程重複規則結構，支援每日/每週/每月/每年重複，包含間隔、結束日期等設定 |
+| `user_model.dart` | **用戶模型** - 定義用戶資料結構（ID、Email、顯示名稱、大頭照、FCM Token），包含 `UserSettings` 子類別儲存個人偏好（提醒時間、語言、時區、節日顯示、外觀模式等） |
 | `voice_processing_model.dart` | **語音處理模型** - 定義語音處理狀態（上傳中、處理中、完成、失敗）和處理記錄結構，包含 `VoiceProcessingResult` 解析結果子類別 |
 
 ---
@@ -48,7 +51,9 @@ AI calendar/
 | `calendar_provider.dart` | **行事曆狀態管理** - 提供行事曆列表 Provider，管理當前選擇的行事曆（自動儲存至 SharedPreferences），包含 `CalendarController` 處理 CRUD 操作 |
 | `event_provider.dart` | **行程狀態管理** - 提供行程列表 Provider（支援依行事曆過濾），管理選中日期，包含 `EventController` 處理行程的 CRUD 操作 |
 | `event_label_provider.dart` | **標籤狀態管理** - 管理行程標籤列表（12 種預設標籤），支援自訂標籤名稱，資料持久化至 SharedPreferences |
+| `holiday_provider.dart` | **節日狀態管理** - 提供節日列表 Provider，依據用戶設定的節日地區提供對應節日資料 |
 | `memo_provider.dart` | **備忘錄狀態管理** - 提供備忘錄列表 Provider（未完成/已完成分開），包含 `MemoController` 處理 CRUD 及切換完成/釘選狀態 |
+| `theme_provider.dart` | **主題狀態管理** - 從用戶設定讀取外觀模式（預設/深色模式），提供對應的 ThemeData，支援即時切換 |
 | `voice_provider.dart` | **語音狀態管理** - 管理錄音狀態、處理進度、錄音時長，包含 `VoiceController` 處理開始/停止錄音、上傳處理、從語音結果建立行程等 |
 
 ---
@@ -58,7 +63,9 @@ AI calendar/
 | 文件 | 說明 |
 |------|------|
 | `firebase_service.dart` | **Firebase 服務** - 統一管理所有 Firebase 操作（單例模式），包含：認證（登入/註冊/登出）、用戶資料 CRUD、行程 CRUD、備忘錄 CRUD、行事曆 CRUD、語音檔案上傳（支援移動平台/Web）、語音處理記錄管理 |
+| `holiday_service.dart` | **節日服務** - 處理節日資料，提供依日期查詢節日、依地區篩選節日等功能 |
 | `notification_service.dart` | **推播通知服務** - 處理 Firebase Cloud Messaging，包含：請求通知權限、取得/儲存 FCM Token、處理前景/背景/終止狀態訊息、主題訂閱功能 |
+| `recurrence_service.dart` | **重複行程服務** - 處理重複行程邏輯，包含：計算下一次重複日期、產生重複行程實例、判斷重複規則是否結束等 |
 | `voice_service.dart` | **語音服務** - 處理語音錄製和上傳，包含：麥克風權限檢查/請求、開始/停止/取消錄音（支援移動平台和 Web）、錄音振幅取得（用於波形動畫）、上傳語音至 Firebase Storage 並觸發 AI 處理 |
 
 ---
@@ -85,12 +92,15 @@ AI calendar/
 |------|------|
 | `app_bottom_nav.dart` | **底部導航列** - 切換行事曆、備忘錄、通知等主要功能頁面 |
 | `calendar_header.dart` | **行事曆標頭** - 顯示當前年月，提供月份切換功能 |
+| `calendar_members_sheet.dart` | **行事曆成員底部彈窗** - 管理行事曆成員，支援邀請新成員、變更角色、移除成員等 |
 | `calendar_settings_sheet.dart` | **行事曆設定底部彈窗** - 設定週起始日、節日顯示、時區等行事曆偏好 |
 | `day_cell.dart` | **日期格子元件** - 顯示單一日期，包含節日標記和行程指示點 |
 | `day_events_bottom_sheet.dart` | **當日行程底部彈窗** - 顯示選中日期的所有行程列表，提供新增行程功能 |
 | `event_search_sheet.dart` | **行程搜尋底部彈窗** - 搜尋行程功能介面 |
+| `label_filter_sheet.dart` | **標籤篩選底部彈窗** - 依標籤篩選行程顯示 |
 | `multi_day_event_bar.dart` | **跨日行程橫條** - 顯示橫跨多天的行程條 |
-| `user_menu_sheet.dart` | **用戶選單底部彈窗** - 顯示用戶資訊、設定入口、登出等選項 |
+| `repeat_settings_page.dart` | **重複設定頁面** - 設定行程重複規則（每日/每週/每月/每年） |
+| `user_menu_sheet.dart` | **用戶選單底部彈窗** - 顯示用戶資訊、設定入口（含外觀切換）、登出等選項 |
 | `year_month_picker.dart` | **年月選擇器** - 快速切換年份和月份 |
 
 ##### 行事曆工具 (`calendar/utils/`)
@@ -116,11 +126,20 @@ AI calendar/
 | 文件 | 說明 |
 |------|------|
 | `voice_input_screen.dart` | **語音輸入畫面** - 錄音介面，顯示錄音波形和處理進度 |
+| `voice_input_sheet.dart` | **語音輸入底部彈窗** - 底部彈窗形式的錄音介面，提供更便捷的語音輸入體驗 |
 
 
 ---
 
-### 6. 工具常數 (`utils/`)
+### 6. 主題系統 (`theme/`)
+
+| 文件 | 說明 |
+|------|------|
+| `app_colors.dart` | **語意化顏色系統** - 使用 ThemeExtension 定義深淺色主題的統一顏色，包含背景、文字、邊框、互動、狀態等分類，提供 `context.colors` 便捷存取方式 |
+
+---
+
+### 7. 工具常數 (`utils/`)
 
 | 文件 | 說明 |
 |------|------|

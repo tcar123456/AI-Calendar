@@ -104,11 +104,15 @@ class HolidayData {
 
 /// 節日服務類別
 ///
-/// 提供三層快取：
+/// 提供按年份永久快取：
 /// 1. 記憶體快取（最快）
-/// 2. SharedPreferences（7天有效）
-/// 3. API 請求
-/// 4. 靜態資料回退
+/// 2. SharedPreferences（按年份永久快取）
+/// 3. API 請求（首次下載）
+///
+/// 快取策略：
+/// - 已過去的年份：永久快取（歷史資料不會變）
+/// - 當年：永久快取（已確定）
+/// - 未來年份：下載後快取，用戶可選擇性刷新
 class HolidayService {
   // 單例模式
   static final HolidayService _instance = HolidayService._internal();
@@ -118,56 +122,51 @@ class HolidayService {
   // 記憶體快取
   final Map<int, List<Holiday>> _memoryCache = {};
 
-  // 快取有效期（7 天）
-  static const int _cacheValidityDays = 7;
-
   // SharedPreferences 快取 key 前綴
-  static const String _cacheKeyPrefix = 'holidays_cache_';
-  static const String _cacheTimestampPrefix = 'holidays_timestamp_';
+  static const String _cacheKeyPrefix = 'holidays_cache_v2_'; // v2: 永久快取版本
 
   /// 是否啟用 API 呼叫
   ///
-  /// 設為 false 時直接使用靜態資料，適合 API 尚未部署時使用
+  /// 設為 false 時不會呼叫 API，適合 API 尚未部署時使用
   static const bool _enableApiCall = true; // API 已部署，啟用動態節日計算
 
   /// 取得指定年份的節日列表
   ///
   /// 快取優先順序：
-  /// 1. 記憶體快取
-  /// 2. SharedPreferences
-  /// 3. API 請求（若啟用）
-  /// 4. 靜態資料回退
+  /// 1. 記憶體快取（最快）
+  /// 2. SharedPreferences（永久快取）
+  /// 3. API 請求（首次下載後永久快取）
   Future<List<Holiday>> getHolidaysForYear(int year, {String region = 'taiwan'}) async {
     // 1. 檢查記憶體快取
     if (_memoryCache.containsKey(year)) {
       return _memoryCache[year]!;
     }
 
-    // 2. 檢查 SharedPreferences 快取
+    // 2. 檢查 SharedPreferences 永久快取
     final cachedHolidays = await _loadFromLocalCache(year);
     if (cachedHolidays != null) {
-      debugPrint('從本地快取取得 $year 年節日資料 (${cachedHolidays.length} 個)');
+      debugPrint('從永久快取取得 $year 年節日資料 (${cachedHolidays.length} 個)');
       _memoryCache[year] = cachedHolidays;
       return cachedHolidays;
     }
 
-    // 3. 從 API 取得（若啟用）
+    // 3. 從 API 下載（首次）並永久快取
     if (_enableApiCall) {
       try {
-        debugPrint('從 API 取得 $year 年節日資料...');
+        debugPrint('首次下載 $year 年節日資料...');
         final holidays = await _fetchFromApi(year, region);
-        debugPrint('成功取得 ${holidays.length} 個節日');
+        debugPrint('成功下載 ${holidays.length} 個節日，已永久快取');
         _memoryCache[year] = holidays;
         await _saveToLocalCache(year, holidays);
         return holidays;
       } catch (e) {
-        debugPrint('取得節日資料失敗: $e');
+        debugPrint('下載節日資料失敗: $e');
       }
     }
 
-    // 4. 回退到靜態資料
-    debugPrint('使用靜態節日資料 ($year 年)');
-    return _getStaticHolidays(year);
+    // 4. API 失敗時返回空列表（離線且無快取）
+    debugPrint('$year 年節日資料不可用（離線且無快取）');
+    return [];
   }
 
   /// 從 API 取得節日資料
@@ -190,31 +189,19 @@ class HolidayService {
     }
   }
 
-  /// 從本地快取載入
+  /// 從本地快取載入（永久快取，按年份儲存）
   Future<List<Holiday>?> _loadFromLocalCache(int year) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cacheKey = '$_cacheKeyPrefix$year';
-      final timestampKey = '$_cacheTimestampPrefix$year';
 
       final cachedData = prefs.getString(cacheKey);
-      final timestampStr = prefs.getString(timestampKey);
 
-      if (cachedData == null || timestampStr == null) {
+      if (cachedData == null) {
         return null;
       }
 
-      // 檢查快取是否過期
-      final timestamp = DateTime.parse(timestampStr);
-      final now = DateTime.now();
-      if (now.difference(timestamp).inDays > _cacheValidityDays) {
-        // 快取過期，清除
-        await prefs.remove(cacheKey);
-        await prefs.remove(timestampKey);
-        return null;
-      }
-
-      // 解析快取資料
+      // 解析快取資料（永久有效，不檢查過期）
       final List<dynamic> jsonList = jsonDecode(cachedData);
       return jsonList
           .map((json) => HolidayData.fromJson(json as Map<String, dynamic>).toHoliday())
@@ -225,12 +212,11 @@ class HolidayService {
     }
   }
 
-  /// 儲存到本地快取
+  /// 儲存到本地快取（永久快取）
   Future<void> _saveToLocalCache(int year, List<Holiday> holidays) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cacheKey = '$_cacheKeyPrefix$year';
-      final timestampKey = '$_cacheTimestampPrefix$year';
 
       // 將 Holiday 轉換為可序列化的格式
       final jsonList = holidays.map((h) => {
@@ -242,16 +228,15 @@ class HolidayService {
       }).toList();
 
       await prefs.setString(cacheKey, jsonEncode(jsonList));
-      await prefs.setString(timestampKey, DateTime.now().toIso8601String());
+      debugPrint('已永久快取 $year 年節日資料 (${holidays.length} 個)');
     } catch (e) {
       debugPrint('儲存本地快取失敗: $e');
     }
   }
 
-  /// 取得靜態節日資料（回退用）
-  List<Holiday> _getStaticHolidays(int year) {
-    // 使用現有的靜態資料
-    return TaiwanHolidays.fixedHolidays.toList();
+  /// 檢查指定年份是否已快取
+  bool isCached(int year) {
+    return _memoryCache.containsKey(year);
   }
 
   /// 預載入指定年份的節日資料
@@ -276,10 +261,17 @@ class HolidayService {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys();
     for (final key in keys) {
-      if (key.startsWith(_cacheKeyPrefix) || key.startsWith(_cacheTimestampPrefix)) {
+      if (key.startsWith(_cacheKeyPrefix)) {
         await prefs.remove(key);
       }
     }
+    // 同時清除舊版快取（v1）
+    for (final key in keys) {
+      if (key.startsWith('holidays_cache_') || key.startsWith('holidays_timestamp_')) {
+        await prefs.remove(key);
+      }
+    }
+    debugPrint('已清除所有節日快取');
   }
 
   /// 清除指定年份的快取
@@ -287,6 +279,14 @@ class HolidayService {
     _memoryCache.remove(year);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('$_cacheKeyPrefix$year');
-    await prefs.remove('$_cacheTimestampPrefix$year');
+    debugPrint('已清除 $year 年節日快取');
+  }
+
+  /// 強制重新下載指定年份的節日資料
+  ///
+  /// 用於用戶手動刷新未來年份的節日資料
+  Future<List<Holiday>> refreshYear(int year, {String region = 'taiwan'}) async {
+    await clearCacheForYear(year);
+    return getHolidaysForYear(year, region: region);
   }
 }
