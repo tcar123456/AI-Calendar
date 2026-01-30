@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/event_label_model.dart';
 import '../../../providers/calendar_provider.dart';
+import '../../../theme/app_colors.dart';
 import '../../../utils/constants.dart';
 
 /// 標籤篩選面板
@@ -44,6 +45,7 @@ class LabelFilterSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
     final screenWidth = MediaQuery.of(context).size.width;
     final labels = ref.watch(calendarLabelsProvider);
     final hiddenLabelIds = ref.watch(hiddenLabelIdsProvider);
@@ -57,10 +59,10 @@ class LabelFilterSheet extends ConsumerWidget {
           width: screenWidth * 0.5,
           height: double.infinity,
           decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
+            color: colors.surface,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
+                color: colors.shadow,
                 blurRadius: 10,
                 offset: const Offset(-2, 0),
               ),
@@ -115,22 +117,24 @@ class LabelFilterSheet extends ConsumerWidget {
 
   /// 建立標題區域
   Widget _buildHeader(BuildContext context) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.all(kPaddingMedium),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.filter_list,
-            color: Colors.black,
+            color: colors.icon,
             size: 22,
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
               '篩選標籤',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
               ),
             ),
           ),
@@ -152,6 +156,7 @@ class LabelFilterSheet extends ConsumerWidget {
     WidgetRef ref,
     List<String> hiddenLabelIds,
   ) {
+    final colors = context.colors;
     final selectedCalendar = ref.watch(selectedCalendarProvider);
     final allLabelIds = DefaultEventLabels.labels.map((l) => l.id).toList();
     final allHidden = hiddenLabelIds.length == allLabelIds.length;
@@ -172,11 +177,11 @@ class LabelFilterSheet extends ConsumerWidget {
                           .setAllLabelsVisibility(selectedCalendar.id, true);
                     },
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.black,
+                foregroundColor: colors.primary,
                 side: BorderSide(
                   color: allVisible
-                      ? Colors.grey.shade300
-                      : Colors.black,
+                      ? colors.border
+                      : colors.primary,
                 ),
               ),
               child: const Text('顯示全部'),
@@ -194,9 +199,9 @@ class LabelFilterSheet extends ConsumerWidget {
                           .setAllLabelsVisibility(selectedCalendar.id, false);
                     },
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.grey.shade700,
+                foregroundColor: colors.textSecondary,
                 side: BorderSide(
-                  color: allHidden ? Colors.grey.shade300 : Colors.grey.shade400,
+                  color: allHidden ? colors.border : colors.iconSecondary,
                 ),
               ),
               child: const Text('隱藏全部'),
@@ -229,6 +234,7 @@ class _LabelFilterItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return InkWell(
       onTap: () => onToggle(!isVisible),
       child: Padding(
@@ -253,7 +259,7 @@ class _LabelFilterItem extends StatelessWidget {
                 label.name,
                 style: TextStyle(
                   fontSize: 14,
-                  color: isVisible ? Colors.black87 : Colors.grey,
+                  color: isVisible ? colors.textPrimary : colors.textDisabled,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -264,8 +270,8 @@ class _LabelFilterItem extends StatelessWidget {
               isVisible ? Icons.visibility : Icons.visibility_off,
               size: 20,
               color: isVisible
-                  ? Colors.black
-                  : Colors.grey.shade400,
+                  ? colors.icon
+                  : colors.iconTertiary,
             ),
           ],
         ),

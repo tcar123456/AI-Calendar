@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/voice_provider.dart';
 import '../../providers/calendar_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../utils/constants.dart';
 
 /// 語音輸入底部面板
@@ -45,6 +46,8 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     // 監聽語音狀態
     final voiceState = ref.watch(voiceControllerProvider);
 
@@ -54,13 +57,13 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
     final appBarHeight = kToolbarHeight;
     final bottomSheetHeight = screenHeight - statusBarHeight - appBarHeight;
 
-    // 監聽狀態變化並顯示訊息
+    // 監聯狀態變化並顯示訊息
     ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
       if (next.successMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.successMessage!),
-            backgroundColor: Colors.black,
+            backgroundColor: colors.primary,
           ),
         );
         ref.read(voiceControllerProvider.notifier).clearMessages();
@@ -77,7 +80,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage!),
-            backgroundColor: const Color(0xFF333333),
+            backgroundColor: colors.error,
           ),
         );
         ref.read(voiceControllerProvider.notifier).clearMessages();
@@ -86,9 +89,9 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
 
     return Container(
       height: bottomSheetHeight,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -153,6 +156,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
 
   /// 建立行事曆選擇器
   Widget _buildCalendarSelector() {
+    final colors = context.colors;
     final calendars = ref.watch(calendarsProvider);
     final selectedCalendarId = ref.watch(voiceTargetCalendarIdProvider);
 
@@ -182,7 +186,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
                 '選擇行事曆',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[700],
+                  color: colors.textSecondary,
                 ),
               ),
               const SizedBox(width: 16),
@@ -190,14 +194,15 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey[300]!),
+                    border: Border.all(color: colors.border),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: validSelectedId,
                       isExpanded: true,
-                      icon: const Icon(Icons.keyboard_arrow_down),
+                      icon: Icon(Icons.keyboard_arrow_down, color: colors.icon),
+                      dropdownColor: colors.surface,
                       items: calendarList.map((calendar) {
                         return DropdownMenuItem<String>(
                           value: calendar.id,
@@ -216,6 +221,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
                                 child: Text(
                                   calendar.name,
                                   overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: colors.textPrimary),
                                 ),
                               ),
                             ],
@@ -235,13 +241,13 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
           ),
         );
       },
-      loading: () => const Padding(
-        padding: EdgeInsets.all(16),
+      loading: () => Padding(
+        padding: const EdgeInsets.all(16),
         child: Center(
           child: SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(strokeWidth: 2, color: colors.primary),
           ),
         ),
       ),
@@ -251,19 +257,20 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
 
   /// 建立狀態提示文字
   Widget _buildStatusText(VoiceState voiceState) {
+    final colors = context.colors;
     String text;
     Color color;
 
     if (voiceState.isProcessing) {
       // 使用階段訊息
       text = voiceState.stageMessage;
-      color = Colors.black;
+      color = colors.textPrimary;
     } else if (voiceState.isRecording) {
       text = '正在錄音...';
-      color = Colors.black;
+      color = colors.textPrimary;
     } else {
       text = '點擊麥克風開始錄音';
-      color = Colors.grey[700]!;
+      color = colors.textSecondary;
     }
 
     return Text(
@@ -279,6 +286,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
 
   /// 建立錄音按鈕
   Widget _buildRecordButton(VoiceState voiceState) {
+    final colors = context.colors;
     final isRecording = voiceState.isRecording;
     final isProcessing = voiceState.isProcessing;
 
@@ -288,13 +296,13 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
         width: 120,
         height: 120,
         decoration: BoxDecoration(
-          color: Colors.grey[300],
+          color: colors.surfaceContainer,
           shape: BoxShape.circle,
         ),
-        child: const Icon(
+        child: Icon(
           Icons.mic,
           size: 60,
-          color: Colors.grey,
+          color: colors.textDisabled,
         ),
       );
     }
@@ -313,7 +321,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
                   width: 120 + (40 * _pulseController.value),
                   height: 120 + (40 * _pulseController.value),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(
+                    color: colors.primary.withOpacity(
                       0.2 * (1 - _pulseController.value),
                     ),
                     shape: BoxShape.circle,
@@ -332,41 +340,31 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
                     end: Alignment.bottomRight,
                     colors: isRecording
                         ? [
-                            const Color(0xFFF5F5F5),
-                            const Color(0xFFE0E0E0),
+                            colors.surfaceContainer,
+                            colors.surfaceContainerHigh,
                           ]
                         : [
-                            const Color(0xFFFFFFFF),
-                            const Color(0xFFF0F0F0),
+                            colors.surface,
+                            colors.surfaceContainer,
                           ],
                   ),
                   border: Border.all(
-                    color: isRecording
-                        ? const Color(0xFF333333)
-                        : Colors.black,
+                    color: colors.primary,
                     width: 3,
                   ),
                   boxShadow: [
                     // 底部深色陰影（立體感）
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: colors.shadow,
                       blurRadius: 12,
                       offset: const Offset(0, 6),
-                    ),
-                    // 頂部高光（浮凸效果）
-                    BoxShadow(
-                      color: Colors.white.withOpacity(0.9),
-                      blurRadius: 6,
-                      offset: const Offset(0, -3),
                     ),
                   ],
                 ),
                 child: Icon(
                   isRecording ? Icons.stop : Icons.mic,
                   size: 60,
-                  color: isRecording
-                      ? const Color(0xFF333333)
-                      : Colors.black,
+                  color: colors.primary,
                 ),
               ),
             ],
@@ -378,22 +376,24 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
 
   /// 建立錄音時長顯示
   Widget _buildRecordingDuration(VoiceState voiceState) {
+    final colors = context.colors;
     final duration = voiceState.recordingDuration;
     final minutes = duration ~/ 60;
     final seconds = duration % 60;
 
     return Text(
       '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 32,
         fontWeight: FontWeight.bold,
-        color: Colors.black,
+        color: colors.textPrimary,
       ),
     );
   }
 
   /// 建立處理進度指示器
   Widget _buildProcessingIndicator() {
+    final colors = context.colors;
     final voiceState = ref.watch(voiceControllerProvider);
     final progress = voiceState.progress;
     final percentage = (progress * 100).toInt();
@@ -410,17 +410,17 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
               child: CircularProgressIndicator(
                 value: progress > 0 ? progress : null,
                 strokeWidth: 6,
-                backgroundColor: Colors.grey[300],
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.black),
+                backgroundColor: colors.surfaceContainer,
+                valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
               ),
             ),
             if (progress > 0)
               Text(
                 '$percentage%',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: colors.textPrimary,
                 ),
               ),
           ],
@@ -430,7 +430,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
           '這可能需要幾秒鐘...',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[600],
+            color: colors.textSecondary,
           ),
         ),
         const SizedBox(height: 16),
@@ -438,11 +438,11 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
           onTap: () {
             ref.read(voiceControllerProvider.notifier).cancelProcessing();
           },
-          child: const Text(
+          child: Text(
             '取消',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.red,
+              color: colors.error,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -453,10 +453,11 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
 
   /// 建立使用說明
   Widget _buildInstructions() {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(kPaddingLarge),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: colors.surfaceContainer,
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(24),
         ),
@@ -465,11 +466,12 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             '使用提示：',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
@@ -492,6 +494,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
 
   /// 建立說明項目
   Widget _buildInstructionItem(IconData icon, String text) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -499,7 +502,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
           Icon(
             icon,
             size: 20,
-            color: Colors.black,
+            color: colors.icon,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -507,7 +510,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet>
               text,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[700],
+                color: colors.textSecondary,
               ),
             ),
           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../theme/app_colors.dart';
 
 /// 重複設定的 UI 狀態資料類別
 class RepeatSettings {
@@ -197,9 +198,11 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Container(
       key: const ValueKey('repeat'),
-      color: Colors.white,
+      color: colors.surface,
       child: Column(
         children: [
           // 重複設定標題列
@@ -207,7 +210,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
           // 分隔線
           Container(
             height: 0.5,
-            color: Colors.grey[200],
+            color: colors.border,
           ),
           // 內容區域
           Expanded(
@@ -312,7 +315,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                               '重複日',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey[600],
+                                color: colors.textSecondary,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -334,7 +337,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                               '重複日期',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey[600],
+                                color: colors.textSecondary,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -362,6 +365,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
 
   /// 建立標題列
   Widget _buildHeader() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Row(
@@ -370,26 +374,27 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
           IconButton(
             onPressed: _handleComplete,
             icon: const Icon(Icons.arrow_back, size: 22),
-            color: Colors.black87,
+            color: colors.icon,
           ),
           // 標題（置中）
-          const Expanded(
+          Expanded(
             child: Text(
               '重複',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
               ),
             ),
           ),
           // 完成按鈕
           TextButton(
             onPressed: _handleComplete,
-            child: const Text(
+            child: Text(
               '完成',
               style: TextStyle(
-                color: Colors.black,
+                color: colors.primary,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
@@ -410,13 +415,14 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
 
   /// 建立區塊標題
   Widget _buildSectionHeader(String title) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Text(
         title,
         style: TextStyle(
           fontSize: 13,
-          color: Colors.grey[600],
+          color: colors.textSecondary,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -431,6 +437,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
     required VoidCallback onTap,
     bool showDivider = true,
   }) {
+    final colors = context.colors;
     return Column(
       children: [
         InkWell(
@@ -445,9 +452,9 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
-                          color: Colors.black87,
+                          color: colors.textPrimary,
                         ),
                       ),
                       if (subtitle != null) ...[
@@ -456,7 +463,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                           subtitle,
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey[500],
+                            color: colors.textDisabled,
                           ),
                         ),
                       ],
@@ -464,9 +471,9 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                   ),
                 ),
                 if (isSelected)
-                  const Icon(
+                  Icon(
                     Icons.check,
-                    color: Colors.black,
+                    color: colors.primary,
                     size: 20,
                   ),
               ],
@@ -477,7 +484,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
           Container(
             margin: const EdgeInsets.only(left: 16),
             height: 0.5,
-            color: Colors.grey[200],
+            color: colors.border,
           ),
       ],
     );
@@ -485,6 +492,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
 
   /// 建立間隔設定行
   Widget _buildIntervalRow() {
+    final colors = context.colors;
     final typeText = {
       'daily': '天',
       'weekly': '週',
@@ -500,14 +508,14 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
             '每',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[800],
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(width: 16),
           // 間隔數字選擇器
           Container(
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
+              border: Border.all(color: colors.border),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -528,7 +536,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                     child: Icon(
                       Icons.remove,
                       size: 18,
-                      color: _repeatInterval > 1 ? Colors.black87 : Colors.grey[300],
+                      color: _repeatInterval > 1 ? colors.icon : colors.iconTertiary,
                     ),
                   ),
                 ),
@@ -536,7 +544,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                 Container(
                   width: 0.5,
                   height: 24,
-                  color: Colors.grey[300],
+                  color: colors.border,
                 ),
                 // 數字顯示
                 Container(
@@ -544,9 +552,10 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                   alignment: Alignment.center,
                   child: Text(
                     '$_repeatInterval',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
+                      color: colors.textPrimary,
                     ),
                   ),
                 ),
@@ -554,7 +563,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                 Container(
                   width: 0.5,
                   height: 24,
-                  color: Colors.grey[300],
+                  color: colors.border,
                 ),
                 // 增加按鈕
                 InkWell(
@@ -571,7 +580,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                     child: Icon(
                       Icons.add,
                       size: 18,
-                      color: _repeatInterval < 99 ? Colors.black87 : Colors.grey[300],
+                      color: _repeatInterval < 99 ? colors.icon : colors.iconTertiary,
                     ),
                   ),
                 ),
@@ -583,7 +592,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
             typeText,
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[800],
+              color: colors.textPrimary,
             ),
           ),
         ],
@@ -593,6 +602,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
 
   /// 建立星期選擇器
   Widget _buildWeekdaySelector() {
+    final colors = context.colors;
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 
     return Row(
@@ -617,9 +627,9 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isSelected ? Colors.black : Colors.transparent,
+              color: isSelected ? colors.primary : Colors.transparent,
               border: Border.all(
-                color: isSelected ? Colors.black : Colors.grey[300]!,
+                color: isSelected ? colors.primary : colors.border,
               ),
               borderRadius: BorderRadius.circular(20),
             ),
@@ -628,7 +638,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                 weekdays[index],
                 style: TextStyle(
                   fontSize: 14,
-                  color: isSelected ? Colors.white : Colors.black87,
+                  color: isSelected ? colors.textOnPrimary : colors.textPrimary,
                   fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
                 ),
               ),
@@ -641,6 +651,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
 
   /// 建立月日選擇器
   Widget _buildMonthDaySelector() {
+    final colors = context.colors;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -658,9 +669,9 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isSelected ? Colors.black : Colors.transparent,
+              color: isSelected ? colors.primary : Colors.transparent,
               border: Border.all(
-                color: isSelected ? Colors.black : Colors.grey[300]!,
+                color: isSelected ? colors.primary : colors.border,
               ),
               borderRadius: BorderRadius.circular(20),
             ),
@@ -669,7 +680,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                 '$day',
                 style: TextStyle(
                   fontSize: 14,
-                  color: isSelected ? Colors.white : Colors.black87,
+                  color: isSelected ? colors.textOnPrimary : colors.textPrimary,
                   fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
                 ),
               ),
@@ -682,6 +693,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
 
   /// 建立結束日期選擇器
   Widget _buildEndDateSelector() {
+    final colors = context.colors;
     return Column(
       children: [
         // 永不結束選項
@@ -705,11 +717,11 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         '結束日期',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.black87,
+                          color: colors.textPrimary,
                         ),
                       ),
                       if (_repeatEndDate != null) ...[
@@ -718,7 +730,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                           DateFormat('yyyy/MM/dd').format(_repeatEndDate!),
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey[500],
+                            color: colors.textDisabled,
                           ),
                         ),
                       ],
@@ -726,9 +738,9 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
                   ),
                 ),
                 if (_repeatEndDate != null)
-                  const Icon(
+                  Icon(
                     Icons.check,
-                    color: Colors.black,
+                    color: colors.primary,
                     size: 20,
                   ),
               ],
@@ -741,6 +753,7 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
 
   /// 選擇結束日期
   Future<void> _selectEndDate() async {
+    final colors = context.colors;
     final DateTime initialDate = _repeatEndDate ?? widget.defaultStartDate.add(const Duration(days: 30));
     final DateTime firstDate = widget.defaultStartDate;
     final DateTime lastDate = widget.defaultStartDate.add(const Duration(days: 365 * 10)); // 最多 10 年
@@ -750,14 +763,14 @@ class _RepeatSettingsPageState extends State<RepeatSettingsPage> {
       initialDate: initialDate,
       firstDate: firstDate,
       lastDate: lastDate,
-      builder: (context, child) {
+      builder: (pickerContext, child) {
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.black,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
+          data: Theme.of(pickerContext).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: colors.primary,
+              onPrimary: colors.textOnPrimary,
+              surface: colors.surface,
+              onSurface: colors.textPrimary,
             ),
           ),
           child: child!,

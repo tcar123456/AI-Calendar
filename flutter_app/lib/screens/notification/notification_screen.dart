@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/event_model.dart';
 import '../../providers/event_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../utils/constants.dart';
 import '../calendar/event_detail_screen.dart';
 
@@ -34,6 +35,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     // 取得所有行事曆的行程（不篩選行事曆）
     final eventsAsync = ref.watch(allEventsProvider);
 
@@ -45,7 +47,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              Icon(Icons.error_outline, size: 64, color: colors.error),
               const SizedBox(height: 16),
               Text('載入失敗：$error'),
             ],
@@ -78,7 +80,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              Icon(Icons.error_outline, size: 64, color: colors.error),
               const SizedBox(height: 16),
               Text('載入失敗：$error'),
             ],
@@ -91,6 +93,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
 
   /// 建立通知內容
   Widget _buildNotificationContent(List<CalendarEvent> events) {
+    final colors = context.colors;
     // 分類行程
     final now = DateTime.now();
 
@@ -151,7 +154,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           _buildSectionHeader(
             icon: Icons.play_circle,
             title: '正在進行',
-            color: Colors.black,
+            color: colors.primary,
             count: ongoingEvents.length,
           ),
           ...ongoingEvents.map((e) => _buildNotificationCard(
@@ -181,7 +184,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           _buildSectionHeader(
             icon: Icons.today,
             title: '今日待辦',
-            color: Colors.black,
+            color: colors.primary,
             count: todayEvents.length,
           ),
           ...todayEvents.map((e) => _buildNotificationCard(
@@ -270,14 +273,15 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
     required CalendarEvent event,
     required NotificationType type,
   }) {
+    final colors = context.colors;
     // 根據通知類型決定顏色和圖示
     Color cardColor;
     IconData statusIcon;
     String timeText;
-    
+
     switch (type) {
       case NotificationType.ongoing:
-        cardColor = Colors.black;
+        cardColor = colors.primary;
         statusIcon = Icons.play_arrow;
         final remaining = event.endTime.difference(DateTime.now());
         timeText = '進行中，剩餘 ${remaining.inMinutes} 分鐘';
@@ -289,7 +293,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
         timeText = '${until.inMinutes} 分鐘後開始';
         break;
       case NotificationType.today:
-        cardColor = Colors.black;
+        cardColor = colors.primary;
         statusIcon = Icons.schedule;
         timeText = DateFormat('HH:mm').format(event.startTime);
         break;
@@ -324,9 +328,9 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                 ),
                 child: Icon(statusIcon, color: cardColor, size: 20),
               ),
-              
+
               const SizedBox(width: kPaddingMedium),
-              
+
               // 中間內容
               Expanded(
                 child: Column(
@@ -338,9 +342,10 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                         Expanded(
                           child: Text(
                             event.title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
+                              color: colors.textPrimary,
                             ),
                           ),
                         ),
@@ -384,7 +389,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                           Icon(
                             Icons.location_on,
                             size: 14,
-                            color: Colors.grey[600],
+                            color: colors.textSecondary,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
@@ -392,7 +397,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                               event.location!,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey[600],
+                                color: colors.textSecondary,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -403,11 +408,11 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                   ],
                 ),
               ),
-              
+
               // 右側箭頭
               Icon(
                 Icons.chevron_right,
-                color: Colors.grey[400],
+                color: colors.iconTertiary,
               ),
             ],
           ),
@@ -418,6 +423,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
 
   /// 建立空狀態提示
   Widget _buildEmptyState() {
+    final colors = context.colors;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -425,7 +431,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           Icon(
             Icons.notifications_none,
             size: 80,
-            color: Colors.grey[400],
+            color: colors.iconTertiary,
           ),
           const SizedBox(height: 16),
           Text(
@@ -433,7 +439,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
+              color: colors.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -442,7 +448,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[500],
+              color: colors.textDisabled,
             ),
           ),
         ],

@@ -33,6 +33,9 @@ class UserSettings {
   /// 目前只實作台灣
   final List<String> holidayRegions;
 
+  /// 外觀模式（'light' 或 'dark'）
+  final String themeMode;
+
   UserSettings({
     this.defaultReminderMinutes = 15,
     this.language = 'zh-TW',
@@ -43,6 +46,7 @@ class UserSettings {
     this.timezone = 'Asia/Taipei', // 預設台北時區
     this.showHolidays = true, // 預設顯示節日
     this.holidayRegions = const ['taiwan'], // 預設顯示台灣節日
+    this.themeMode = 'light', // 預設淺色模式
   });
 
   /// 從 JSON 建立物件
@@ -63,6 +67,7 @@ class UserSettings {
       timezone: json['timezone'] as String? ?? 'Asia/Taipei',
       showHolidays: json['showHolidays'] as bool? ?? true,
       holidayRegions: regions,
+      themeMode: json['themeMode'] as String? ?? 'light',
     );
   }
 
@@ -78,6 +83,7 @@ class UserSettings {
       'timezone': timezone,
       'showHolidays': showHolidays,
       'holidayRegions': holidayRegions,
+      'themeMode': themeMode,
     };
   }
 
@@ -92,6 +98,7 @@ class UserSettings {
     String? timezone,
     bool? showHolidays,
     List<String>? holidayRegions,
+    String? themeMode,
   }) {
     return UserSettings(
       defaultReminderMinutes: defaultReminderMinutes ?? this.defaultReminderMinutes,
@@ -103,9 +110,10 @@ class UserSettings {
       timezone: timezone ?? this.timezone,
       showHolidays: showHolidays ?? this.showHolidays,
       holidayRegions: holidayRegions ?? this.holidayRegions,
+      themeMode: themeMode ?? this.themeMode,
     );
   }
-  
+
   /// 取得格式化的通知時間字串
   String getFormattedNotificationTime() {
     final hour = notificationHour.toString().padLeft(2, '0');
@@ -162,6 +170,16 @@ class UserSettings {
     };
 
     return languageDisplayNames[language] ?? language;
+  }
+
+  /// 取得外觀模式的顯示名稱
+  String getThemeModeDisplayName() {
+    const themeModeDisplayNames = <String, String>{
+      'light': '預設',
+      'dark': '黑夜',
+    };
+
+    return themeModeDisplayNames[themeMode] ?? '預設';
   }
 }
 

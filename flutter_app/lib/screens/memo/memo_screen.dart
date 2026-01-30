@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/memo_model.dart';
 import '../../providers/memo_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../utils/constants.dart';
 
 /// 備忘錄主畫面
@@ -39,25 +40,27 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     // 嵌入模式：使用簡化的佈局，不顯示獨立的 Scaffold
     if (widget.embedded) {
       return Column(
         children: [
           // Tab 選項（白底黑框粗體）
           Container(
-            color: Colors.white,
+            color: colors.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TabBar(
               controller: _tabController,
               indicator: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.black, width: 2),
+                color: colors.surface,
+                border: Border.all(color: colors.primary, width: 2),
                 borderRadius: BorderRadius.circular(8),
               ),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
-              labelColor: Colors.black,
-              unselectedLabelColor: Colors.grey,
+              labelColor: colors.primary,
+              unselectedLabelColor: colors.textDisabled,
               labelStyle: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
@@ -89,8 +92,8 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
                   bottom: 16,
                   child: FloatingActionButton(
                     onPressed: () => _showMemoEditor(context, null),
-                    backgroundColor: Colors.black,
-                    child: const Icon(Icons.add, color: Colors.white),
+                    backgroundColor: colors.primary,
+                    child: Icon(Icons.add, color: colors.textOnPrimary),
                   ),
                 ),
               ],
@@ -107,19 +110,19 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Container(
-            color: Colors.white,
+            color: colors.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TabBar(
               controller: _tabController,
               indicator: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.black, width: 2),
+                color: colors.surface,
+                border: Border.all(color: colors.primary, width: 2),
                 borderRadius: BorderRadius.circular(8),
               ),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
-              labelColor: Colors.black,
-              unselectedLabelColor: Colors.grey,
+              labelColor: colors.primary,
+              unselectedLabelColor: colors.textDisabled,
               labelStyle: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
@@ -148,14 +151,15 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
       // 新增備忘錄按鈕
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showMemoEditor(context, null),
-        backgroundColor: Colors.black,
-        child: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: colors.primary,
+        child: Icon(Icons.add, color: colors.textOnPrimary),
       ),
     );
   }
 
   /// 建立未完成的備忘錄列表
   Widget _buildPendingMemoList() {
+    final colors = context.colors;
     final pendingMemosAsync = ref.watch(pendingMemosProvider);
 
     return pendingMemosAsync.when(
@@ -164,7 +168,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            Icon(Icons.error_outline, size: 64, color: colors.error),
             const SizedBox(height: 16),
             Text('載入失敗：$error'),
           ],
@@ -191,6 +195,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
 
   /// 建立已完成的備忘錄列表
   Widget _buildCompletedMemoList() {
+    final colors = context.colors;
     final completedMemosAsync = ref.watch(completedMemosProvider);
 
     return completedMemosAsync.when(
@@ -199,7 +204,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            Icon(Icons.error_outline, size: 64, color: colors.error),
             const SizedBox(height: 16),
             Text('載入失敗：$error'),
           ],
@@ -229,18 +234,19 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
     required IconData icon,
     required String message,
   }) {
+    final colors = context.colors;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 80, color: Colors.grey[400]),
+          Icon(icon, size: 80, color: colors.iconTertiary),
           const SizedBox(height: 16),
           Text(
             message,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[600],
+              color: colors.textSecondary,
             ),
           ),
         ],
@@ -250,17 +256,19 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
 
   /// 建立備忘錄卡片
   Widget _buildMemoCard(Memo memo, {bool isCompleted = false}) {
+    final colors = context.colors;
+
     // 優先級顏色
     Color priorityColor;
     switch (memo.priority) {
       case 2:
-        priorityColor = const Color(0xFF333333);
+        priorityColor = colors.textPrimary;
         break;
       case 1:
         priorityColor = const Color(kWarningColorValue);
         break;
       default:
-        priorityColor = Colors.black;
+        priorityColor = colors.primary;
     }
 
     return Card(
@@ -282,19 +290,19 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isCompleted ? Colors.black : Colors.grey,
+                      color: isCompleted ? colors.primary : colors.textDisabled,
                       width: 2,
                     ),
-                    color: isCompleted ? Colors.black : Colors.transparent,
+                    color: isCompleted ? colors.primary : Colors.transparent,
                   ),
                   child: isCompleted
-                      ? const Icon(Icons.check, size: 16, color: Colors.white)
+                      ? Icon(Icons.check, size: 16, color: colors.textOnPrimary)
                       : null,
                 ),
               ),
-              
+
               const SizedBox(width: kPaddingMedium),
-              
+
               // 備忘錄內容
               Expanded(
                 child: Column(
@@ -309,7 +317,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
                             child: Icon(
                               Icons.push_pin,
                               size: 16,
-                              color: Colors.black,
+                              color: colors.icon,
                             ),
                           ),
                         Expanded(
@@ -318,16 +326,16 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              decoration: isCompleted 
-                                  ? TextDecoration.lineThrough 
+                              decoration: isCompleted
+                                  ? TextDecoration.lineThrough
                                   : null,
-                              color: isCompleted ? Colors.grey : null,
+                              color: isCompleted ? colors.textDisabled : colors.textPrimary,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    
+
                     // 內容預覽
                     if (memo.content != null && memo.content!.isNotEmpty) ...[
                       const SizedBox(height: 4),
@@ -337,16 +345,16 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
-                          decoration: isCompleted 
-                              ? TextDecoration.lineThrough 
+                          color: colors.textSecondary,
+                          decoration: isCompleted
+                              ? TextDecoration.lineThrough
                               : null,
                         ),
                       ),
                     ],
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // 底部資訊列
                     Row(
                       children: [
@@ -369,61 +377,64 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(width: 8),
-                        
+
                         // 提醒時間
                         if (memo.reminderTime != null) ...[
                           Icon(
                             Icons.access_time,
                             size: 14,
-                            color: memo.isReminderPast() 
-                                ? Colors.red 
-                                : Colors.grey[600],
+                            color: memo.isReminderPast()
+                                ? colors.error
+                                : colors.textSecondary,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             DateFormat('MM/dd HH:mm').format(memo.reminderTime!),
                             style: TextStyle(
                               fontSize: 12,
-                              color: memo.isReminderPast() 
-                                  ? Colors.red 
-                                  : Colors.grey[600],
+                              color: memo.isReminderPast()
+                                  ? colors.error
+                                  : colors.textSecondary,
                             ),
                           ),
                         ],
-                        
+
                         const Spacer(),
-                        
+
                         // 更多選項
                         PopupMenuButton<String>(
-                          icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                          icon: Icon(Icons.more_vert, color: colors.iconSecondary),
                           padding: EdgeInsets.zero,
-                          itemBuilder: (context) => [
-                            PopupMenuItem(
-                              value: 'pin',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    memo.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(memo.isPinned ? '取消釘選' : '釘選'),
-                                ],
+                          itemBuilder: (popupContext) {
+                            final popupColors = popupContext.colors;
+                            return [
+                              PopupMenuItem(
+                                value: 'pin',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      memo.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(memo.isPinned ? '取消釘選' : '釘選'),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete, size: 20, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('刪除', style: TextStyle(color: Colors.red)),
-                                ],
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete, size: 20, color: popupColors.error),
+                                    const SizedBox(width: 8),
+                                    Text('刪除', style: TextStyle(color: popupColors.error)),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ];
+                          },
                           onSelected: (value) {
                             if (value == 'pin') {
                               _togglePin(memo);
@@ -458,28 +469,31 @@ class _MemoScreenState extends ConsumerState<MemoScreen> with SingleTickerProvid
   void _confirmDelete(Memo memo) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('確認刪除'),
-        content: Text('確定要刪除「${memo.title}」嗎？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await ref.read(memoControllerProvider.notifier).deleteMemo(memo.id);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('備忘錄已刪除')),
-                );
-              }
-            },
-            child: const Text('刪除', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        final dialogColors = dialogContext.colors;
+        return AlertDialog(
+          title: const Text('確認刪除'),
+          content: Text('確定要刪除「${memo.title}」嗎？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await ref.read(memoControllerProvider.notifier).deleteMemo(memo.id);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('備忘錄已刪除')),
+                  );
+                }
+              },
+              child: Text('刪除', style: TextStyle(color: dialogColors.error)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -539,6 +553,7 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final isEditing = widget.memo != null;
 
     return GestureDetector(
@@ -547,9 +562,9 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SafeArea(
           child: Padding(
@@ -563,39 +578,40 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
                 children: [
                   Icon(
                     isEditing ? Icons.edit : Icons.add_task,
-                    color: Colors.black,
+                    color: colors.icon,
                   ),
                   const SizedBox(width: 12),
                   Text(
                     isEditing ? '編輯備忘錄' : '新增備忘錄',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
+                      color: colors.textPrimary,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: Icon(Icons.close, color: colors.icon),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              
+
               const Divider(),
               const SizedBox(height: kPaddingMedium),
-              
+
               // 標題輸入
               TextField(
                 controller: _titleController,
                 decoration: const InputDecoration(
                   labelText: '標題',
-                  hintText: '輸入備忘錄標題',                 
+                  hintText: '輸入備忘錄標題',
                 ),
                 textInputAction: TextInputAction.next,
               ),
-              
+
               const SizedBox(height: kPaddingMedium),
-              
+
               // 內容輸入
               TextField(
                 controller: _contentController,
@@ -606,15 +622,15 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
                 ),
                 maxLines: 3,
               ),
-              
+
               const SizedBox(height: kPaddingMedium),
-              
+
               // 優先級選擇
               Row(
                 children: [
-                  const Icon(Icons.flag, color: Colors.grey),
+                  Icon(Icons.flag, color: colors.iconSecondary),
                   const SizedBox(width: 12),
-                  const Text('優先級：'),
+                  Text('優先級：', style: TextStyle(color: colors.textPrimary)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: SegmentedButton<int>(
@@ -633,9 +649,9 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: kPaddingMedium),
-              
+
               // 提醒時間
               InkWell(
                 onTap: _pickReminderTime,
@@ -643,16 +659,16 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
                 child: Container(
                   padding: const EdgeInsets.all(kPaddingMedium),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: colors.surfaceContainer,
                     borderRadius: BorderRadius.circular(kBorderRadius),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         Icons.access_time,
-                        color: _reminderTime != null 
-                            ? Colors.black
-                            : Colors.grey,
+                        color: _reminderTime != null
+                            ? colors.icon
+                            : colors.iconSecondary,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -661,15 +677,15 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
                               ? '提醒時間：${DateFormat('yyyy/MM/dd HH:mm').format(_reminderTime!)}'
                               : '設定提醒時間（選填）',
                           style: TextStyle(
-                            color: _reminderTime != null 
-                                ? Colors.black87 
-                                : Colors.grey[600],
+                            color: _reminderTime != null
+                                ? colors.textPrimary
+                                : colors.textSecondary,
                           ),
                         ),
                       ),
                       if (_reminderTime != null)
                         IconButton(
-                          icon: const Icon(Icons.close, size: 20),
+                          icon: Icon(Icons.close, size: 20, color: colors.icon),
                           onPressed: () {
                             setState(() {
                               _reminderTime = null;
@@ -680,26 +696,26 @@ class _MemoEditorSheetState extends ConsumerState<MemoEditorSheet> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: kPaddingLarge),
-              
+
               // 儲存按鈕
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
+                    backgroundColor: colors.primary,
+                    foregroundColor: colors.textOnPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: _isSaving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(colors.textOnPrimary),
                           ),
                         )
                       : Text(isEditing ? '儲存變更' : '新增備忘錄'),

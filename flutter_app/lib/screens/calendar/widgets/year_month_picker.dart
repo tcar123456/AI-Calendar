@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../theme/app_colors.dart';
 
 /// 年月選擇器對話框
 ///
@@ -70,6 +71,8 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return AlertDialog(
       titlePadding: EdgeInsets.zero,
       contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
@@ -87,19 +90,20 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.grey[600],
+                      foregroundColor: colors.textSecondary,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
                     child: const Text('取消'),
                   ),
                   // 標題（置中）
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       '選擇年月',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
+                        color: colors.textPrimary,
                       ),
                     ),
                   ),
@@ -110,7 +114,7 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
                       widget.onDateSelected(DateTime(selectedYear, selectedMonth, 1));
                     },
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.black,
+                      foregroundColor: colors.primary,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
                     child: const Text('確認'),
@@ -169,9 +173,11 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
     required ValueChanged<int> onSelectedItemChanged,
     required int selectedIndex,
   }) {
+    final colors = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: colors.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Stack(
@@ -181,9 +187,9 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
             child: Container(
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[300]!),
+                border: Border.all(color: colors.border),
               ),
             ),
           ),
@@ -197,7 +203,8 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
             onSelectedItemChanged: onSelectedItemChanged,
             childDelegate: ListWheelChildBuilderDelegate(
               childCount: itemCount,
-              builder: (context, index) {
+              builder: (wheelContext, index) {
+                final wheelColors = wheelContext.colors;
                 final isSelected = index == selectedIndex;
                 return Center(
                   child: Text(
@@ -205,7 +212,7 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
                     style: TextStyle(
                       fontSize: isSelected ? 18 : 14,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      color: isSelected ? Colors.black : Colors.grey[500],
+                      color: isSelected ? wheelColors.textPrimary : wheelColors.textDisabled,
                     ),
                   ),
                 );

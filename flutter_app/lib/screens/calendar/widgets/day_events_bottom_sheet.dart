@@ -8,6 +8,7 @@ import '../../../models/holiday_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/calendar_provider.dart';
 import '../../../providers/event_provider.dart';
+import '../../../theme/app_colors.dart';
 import '../../../utils/constants.dart';
 import '../utils/calendar_utils.dart';
 
@@ -66,7 +67,7 @@ class DayEventsBottomSheet extends ConsumerStatefulWidget {
       // 允許用戶通過滑動關閉面板
       enableDrag: true,
       // 設置外部遮罩顏色（半透明黑色，點擊此區域可關閉）
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Theme.of(context).extension<AppColors>()!.overlay,
       // 設定進場和退場動畫曲線（與 snap 動畫一致）
       sheetAnimationStyle: AnimationStyle(
         duration: const Duration(milliseconds: 300),
@@ -153,10 +154,11 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
       // 設定 snap 動畫時間
       snapAnimationDuration: const Duration(milliseconds: 100),
       builder: (context, scrollController) {
+        final colors = context.colors;
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(
               top: Radius.circular(24),
             ),
           ),
@@ -175,7 +177,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
+                          color: colors.dragHandle,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -221,6 +223,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
   ///
   /// 包含日期標題、農曆文字、新增按鈕和檢視模式切換按鈕
   Widget _buildTitleSection() {
+    final colors = context.colors;
     // 取得農曆顯示設定
     final showLunar = ref.watch(effectiveShowLunarProvider);
 
@@ -241,9 +244,9 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
       child: Row(
         children: [
           // 日曆圖標
-          const Icon(
+          Icon(
             Icons.event,
-            color: Colors.black,
+            color: colors.icon,
             size: 22,
           ),
           const SizedBox(width: 10),
@@ -254,9 +257,10 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
               children: [
                 Text(
                   DateFormat('yyyy年MM月dd日 EEEE', 'zh_TW').format(widget.selectedDay),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    color: colors.textPrimary,
                   ),
                 ),
                 // 農曆文字
@@ -265,7 +269,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
                     lunarText,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[600],
+                      color: colors.textSecondary,
                     ),
                   ),
               ],
@@ -286,6 +290,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
   /// 在分隔線下方顯示深紅色圓角長方形的節日標籤
   /// 複數節日會平分寬度並排顯示
   Widget _buildHolidaySection(List<Holiday> holidays) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: kPaddingLarge,
@@ -295,7 +300,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
         children: holidays.asMap().entries.map((entry) {
           final index = entry.key;
           final holiday = entry.value;
-          
+
           return Expanded(
             child: Padding(
               // 節日之間的間距
@@ -311,14 +316,14 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
                 ),
                 decoration: BoxDecoration(
                   // 節日紅色
-                  color: Colors.red,
+                  color: colors.holiday,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   holiday.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: Colors.white,
+                    color: colors.textOnPrimary,
                     // 文字改為粗體
                     fontWeight: FontWeight.w700,
                   ),
@@ -336,6 +341,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
 
   /// 建立新增行程按鈕
   Widget _buildAddEventButton() {
+    final colors = context.colors;
     return Tooltip(
       message: '新增行程',
       child: InkWell(
@@ -344,13 +350,13 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.1),
+            color: colors.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.add,
             size: 22,
-            color: Colors.black,
+            color: colors.icon,
           ),
         ),
       ),
@@ -359,6 +365,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
 
   /// 建立檢視模式切換按鈕（單一按鈕，點擊切換模式和圖標）
   Widget _buildViewModeToggle() {
+    final colors = context.colors;
     // 根據當前模式決定顯示的圖標和提示
     final isCardMode = _viewMode == EventViewMode.card;
     final icon = isCardMode ? Icons.view_agenda_outlined : Icons.schedule_outlined;
@@ -377,7 +384,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.grey[100],
+            color: colors.surfaceContainer,
             borderRadius: BorderRadius.circular(8),
           ),
           child: AnimatedSwitcher(
@@ -392,7 +399,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
               icon,
               key: ValueKey(icon),
               size: 22,
-              color: Colors.grey[700],
+              color: colors.iconSecondary,
             ),
           ),
         ),
@@ -434,6 +441,7 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
 
   /// 建立空狀態（只顯示提示文字，新增按鈕在標題列）
   Widget _buildEmptyState(BuildContext context) {
+    final colors = context.colors;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -441,14 +449,14 @@ class _DayEventsBottomSheetState extends ConsumerState<DayEventsBottomSheet> {
           Icon(
             Icons.event_busy,
             size: 56,
-            color: Colors.grey[350],
+            color: colors.iconTertiary,
           ),
           const SizedBox(height: 12),
           Text(
             '這天沒有安排行程',
             style: TextStyle(
               fontSize: 15,
-              color: Colors.grey[500],
+              color: colors.textDisabled,
             ),
           ),
         ],
@@ -478,9 +486,10 @@ class _CardModeEventItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     // 取得標籤顏色
     final labelColor = _getLabelColor();
-    
+
     // 判斷跨日狀態
     final isMultiDayMiddle = event.isMultiDay() && event.isMiddleDate(selectedDay);
     final isMultiDayEnd = event.isMultiDay() && event.isEndDate(selectedDay);
@@ -498,11 +507,11 @@ class _CardModeEventItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surface,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: colors.shadow,
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -536,6 +545,7 @@ class _CardModeEventItem extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: _buildTimeDisplay(
+                            context: context,
                             isMultiDayMiddle: isMultiDayMiddle,
                             isMultiDayEnd: isMultiDayEnd,
                             isMultiDayStart: isMultiDayStart,
@@ -559,7 +569,7 @@ class _CardModeEventItem extends StatelessWidget {
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.grey[850],
+                                        color: colors.textPrimary,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -596,7 +606,7 @@ class _CardModeEventItem extends StatelessWidget {
                                     Icon(
                                       Icons.location_on_outlined,
                                       size: 13,
-                                      color: Colors.grey[500],
+                                      color: colors.textDisabled,
                                     ),
                                     const SizedBox(width: 3),
                                     Expanded(
@@ -604,7 +614,7 @@ class _CardModeEventItem extends StatelessWidget {
                                         event.location!,
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: Colors.grey[500],
+                                          color: colors.textDisabled,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -618,7 +628,7 @@ class _CardModeEventItem extends StatelessWidget {
                                   event.description!,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[500],
+                                    color: colors.textDisabled,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -632,7 +642,7 @@ class _CardModeEventItem extends StatelessWidget {
                         Icon(
                           Icons.chevron_right,
                           size: 20,
-                          color: Colors.grey[400],
+                          color: colors.iconTertiary,
                         ),
                       ],
                     ),
@@ -661,23 +671,25 @@ class _CardModeEventItem extends StatelessWidget {
 
   /// 建立時間顯示（時間範圍）
   List<Widget> _buildTimeDisplay({
+    required BuildContext context,
     required bool isMultiDayMiddle,
     required bool isMultiDayEnd,
     required bool isMultiDayStart,
   }) {
+    final colors = context.colors;
     final timeStyle = TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.w600,
-      color: Colors.grey[600],
+      color: colors.textSecondary,
     );
-    
+
     // 全天或跨日中間日期
     if (isMultiDayMiddle || event.isAllDay) {
       return [
         Text('全天', style: timeStyle),
       ];
     }
-    
+
     // 跨日行程結束日期
     if (isMultiDayEnd) {
       return [
@@ -686,12 +698,12 @@ class _CardModeEventItem extends StatelessWidget {
           DateFormat('HH:mm').format(event.endTime),
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey[500],
+            color: colors.textDisabled,
           ),
         ),
       ];
     }
-    
+
     // 跨日行程開始日期
     if (isMultiDayStart) {
       return [
@@ -700,12 +712,12 @@ class _CardModeEventItem extends StatelessWidget {
           '23:59',
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey[500],
+            color: colors.textDisabled,
           ),
         ),
       ];
     }
-    
+
     // 一般行程：顯示開始和結束時間
     return [
       Text(DateFormat('HH:mm').format(event.startTime), style: timeStyle),
@@ -713,7 +725,7 @@ class _CardModeEventItem extends StatelessWidget {
         DateFormat('HH:mm').format(event.endTime),
         style: TextStyle(
           fontSize: 12,
-          color: Colors.grey[500],
+          color: colors.textDisabled,
         ),
       ),
     ];
@@ -765,28 +777,29 @@ class _TimelineView extends StatelessWidget {
       children: [
         // 全天行程區域
         if (allDayEvents.isNotEmpty) ...[
-          _buildAllDaySection(allDayEvents),
+          _buildAllDaySection(context, allDayEvents),
           const Divider(height: 1),
         ],
-        
+
         // 24 小時時間軸
         SizedBox(
           height: hourHeight * 24,
           child: LayoutBuilder(
-            builder: (context, constraints) {
+            builder: (layoutContext, constraints) {
               // 計算可用於行程的寬度
               final eventAreaWidth = constraints.maxWidth - timeColumnWidth - eventAreaRightPadding;
-              
+
               return Stack(
                 children: [
                   // 背景時間線
-                  _buildTimeGrid(),
-                  
+                  _buildTimeGrid(context),
+
                   // 當前時間指示線
-                  if (_isToday()) _buildCurrentTimeIndicator(),
-                  
+                  if (_isToday()) _buildCurrentTimeIndicator(context),
+
                   // 行程區塊（使用計算好的佈局資訊）
                   ...timedEvents.map((event) => _buildEventBlock(
+                    context,
                     event,
                     layoutInfo[event.id]!,
                     eventAreaWidth,
@@ -963,7 +976,8 @@ class _TimelineView extends StatelessWidget {
   }
 
   /// 建立全天行程區域
-  Widget _buildAllDaySection(List<CalendarEvent> allDayEvents) {
+  Widget _buildAllDaySection(BuildContext context, List<CalendarEvent> allDayEvents) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: kPaddingMedium, vertical: kPaddingSmall),
       child: Column(
@@ -977,7 +991,7 @@ class _TimelineView extends StatelessWidget {
                   '全天',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: colors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1037,7 +1051,8 @@ class _TimelineView extends StatelessWidget {
   }
 
   /// 建立時間格線
-  Widget _buildTimeGrid() {
+  Widget _buildTimeGrid(BuildContext context) {
+    final colors = context.colors;
     return Column(
       children: List.generate(24, (hour) {
         return SizedBox(
@@ -1054,7 +1069,7 @@ class _TimelineView extends StatelessWidget {
                     '${hour.toString().padLeft(2, '0')}:00',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[500],
+                      color: colors.textDisabled,
                     ),
                     textAlign: TextAlign.right,
                   ),
@@ -1066,7 +1081,7 @@ class _TimelineView extends StatelessWidget {
                   decoration: BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: Colors.grey[200]!,
+                        color: colors.borderSubtle,
                         width: 1,
                       ),
                     ),
@@ -1081,7 +1096,8 @@ class _TimelineView extends StatelessWidget {
   }
 
   /// 建立當前時間指示線
-  Widget _buildCurrentTimeIndicator() {
+  Widget _buildCurrentTimeIndicator(BuildContext context) {
+    final colors = context.colors;
     final now = DateTime.now();
     final minutes = now.hour * 60 + now.minute;
     final top = (minutes / 60) * hourHeight;
@@ -1096,8 +1112,8 @@ class _TimelineView extends StatelessWidget {
           Container(
             width: 12,
             height: 12,
-            decoration: const BoxDecoration(
-              color: Colors.red,
+            decoration: BoxDecoration(
+              color: colors.currentTime,
               shape: BoxShape.circle,
             ),
           ),
@@ -1105,7 +1121,7 @@ class _TimelineView extends StatelessWidget {
           Expanded(
             child: Container(
               height: 2,
-              color: Colors.red,
+              color: colors.currentTime,
             ),
           ),
         ],
@@ -1115,6 +1131,7 @@ class _TimelineView extends StatelessWidget {
 
   /// 建立行程區塊（支援重疊行程的橫向排列）
   Widget _buildEventBlock(
+    BuildContext context,
     CalendarEvent event,
     _EventLayoutInfo layoutInfo,
     double eventAreaWidth,

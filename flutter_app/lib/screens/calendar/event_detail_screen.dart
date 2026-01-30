@@ -10,6 +10,7 @@ import '../../providers/event_provider.dart';
 import '../../providers/event_label_provider.dart';
 import '../../providers/calendar_provider.dart';
 import '../../services/recurrence_service.dart';
+import '../../theme/app_colors.dart';
 import '../../utils/constants.dart';
 import 'widgets/repeat_settings_page.dart';
 
@@ -328,6 +329,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     final appBarHeight = kToolbarHeight; // AppBar 標準高度 (56px)
     final bottomSheetHeight = screenHeight - statusBarHeight - appBarHeight;
 
+    final colors = context.colors;
+
     return PopScope(
       canPop: _canPop(),
       onPopInvoked: (didPop) async {
@@ -336,9 +339,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       },
       child: Container(
         height: bottomSheetHeight,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
@@ -452,7 +455,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                           decoration: InputDecoration(
                             hintText: '行程標題 *',
                             hintStyle: TextStyle(
-                              color: Colors.grey[400],
+                              color: colors.textDisabled,
                               fontSize: 16,
                             ),
                             border: InputBorder.none,
@@ -461,9 +464,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                               vertical: 12,
                             ),
                           ),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
+                            color: colors.textPrimary,
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -566,6 +570,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 建立頂部區域（拖動指示器和按鈕）
   Widget _buildHeader(EventState eventState) {
+    final colors = context.colors;
     // 重複設定頁面有自己的標題列，這裡只顯示拖動指示器
     if (_showRepeatPage) {
       return Container(
@@ -573,7 +578,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         width: 40,
         height: 4,
         decoration: BoxDecoration(
-          color: Colors.grey[300],
+          color: colors.dragHandle,
           borderRadius: BorderRadius.circular(2),
         ),
       );
@@ -589,7 +594,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: colors.dragHandle,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -602,7 +607,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               IconButton(
                 onPressed: () => _handleBackNavigation(),
                 icon: const Icon(Icons.arrow_back),
-                color: Colors.grey[600],
+                color: colors.iconSecondary,
               ),
 
               // 右側：操作按鈕
@@ -610,87 +615,90 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                 // 檢視模式：顯示「...」選單
                 PopupMenuButton<String>(
                   key: _moreButtonKey,
-                  icon: Icon(Icons.more_horiz, color: Colors.grey[600]),
+                  icon: Icon(Icons.more_horiz, color: colors.iconSecondary),
                   offset: const Offset(0, 50),
+                  color: colors.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   popUpAnimationStyle: AnimationStyle(
                     duration: const Duration(milliseconds: 100),
                   ),
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                         
-                          SizedBox(width: 12),
-                          Text(
-                            '編輯',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'duplicate',
-                      child: Row(
-                        children: [
-
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              '複製到',
+                  itemBuilder: (menuContext) {
+                    final menuColors = menuContext.colors;
+                    return [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 12),
+                            Text(
+                              '編輯',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
+                                color: menuColors.textPrimary,
                               ),
                             ),
-                          ),
-                          Icon(Icons.chevron_right, size: 20, color: Colors.grey),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'move',
-                      child: Row(
-                        children: [
-
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              '移動到',
+                      PopupMenuItem(
+                        value: 'duplicate',
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '複製到',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: menuColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Icon(Icons.chevron_right, size: 20, color: menuColors.iconSecondary),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'move',
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '移動到',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: menuColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Icon(Icons.chevron_right, size: 20, color: menuColors.iconSecondary),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 12),
+                            Text(
+                              '刪除',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
+                                color: menuColors.error,
                               ),
                             ),
-                          ),
-                          Icon(Icons.chevron_right, size: 20, color: Colors.grey),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                         
-                          SizedBox(width: 12),
-                          Text(
-                            '刪除',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ];
+                  },
                   onSelected: (value) {
                     if (value == 'edit') {
                       _switchToEditMode();
@@ -708,18 +716,18 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                 TextButton(
                   onPressed: eventState.isLoading ? null : _handleSave,
                   child: eventState.isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.black,
+                            color: colors.primary,
                           ),
                         )
-                      : const Text(
+                      : Text(
                           '儲存',
                           style: TextStyle(
-                            color: Colors.black,
+                            color: colors.primary,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -734,6 +742,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 建立地點欄位（直接輸入框 + X 重置按鈕）
   Widget _buildLocationField() {
+    final colors = context.colors;
     // 檢視模式：顯示地點內容（如果有的話）
     if (_isCurrentlyViewMode) {
       if (_locationController.text.isEmpty) {
@@ -753,7 +762,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         // 地點圖示
         Icon(
           Icons.location_on_outlined,
-          color: Colors.grey[600],
+          color: colors.iconSecondary,
           size: 24,
         ),
         const SizedBox(width: 12),
@@ -765,7 +774,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             decoration: InputDecoration(
               hintText: '無地點',
               hintStyle: TextStyle(
-                color: Colors.grey[400],
+                color: colors.textDisabled,
                 fontSize: 15,
               ),
               border: InputBorder.none,
@@ -774,7 +783,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                 vertical: 12,
               ),
             ),
-            style: const TextStyle(fontSize: 15),
+            style: TextStyle(fontSize: 15, color: colors.textPrimary),
           ),
         ),
         // X 重置按鈕（只在有內容時顯示）
@@ -791,7 +800,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             child: Icon(
               Icons.close,
               size: 18,
-              color: Colors.grey[500],
+              color: colors.textSecondary,
             ),
           ),
         ],
@@ -801,6 +810,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 建立備註欄位（帶開關控制）
   Widget _buildDescriptionField() {
+    final colors = context.colors;
     // 檢視模式：顯示備註內容（如果有的話）
     if (_isCurrentlyViewMode) {
       if (_descriptionController.text.isEmpty) {
@@ -821,8 +831,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       children: [
         // 備註開關
         ListTile(
-          leading: const Icon(Icons.notes),
-          title: const Text('備註'),
+          leading: Icon(Icons.notes, color: colors.icon),
+          title: Text('備註', style: TextStyle(color: colors.textPrimary)),
           trailing: Transform.scale(
             scale: 0.7,
             child: Switch(
@@ -850,13 +860,15 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             focusNode: _descriptionFocusNode,
             decoration: InputDecoration(
               hintText: '輸入備註內容...',
+              hintStyle: TextStyle(color: colors.textDisabled),
               filled: true,
-              fillColor: Colors.grey[100],
+              fillColor: colors.surfaceContainer,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
               ),
             ),
+            style: TextStyle(color: colors.textPrimary),
             maxLines: 3,
           ),
         ],
@@ -866,6 +878,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 建立重複行程欄位（點擊開啟底部面板）
   Widget _buildRepeatField() {
+    final colors = context.colors;
     // 檢視模式：如果有重複設定則顯示
     if (_isCurrentlyViewMode) {
       if (!_repeatSettings.isRepeat || _repeatSettings.repeatType == null) {
@@ -889,7 +902,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         // 重複圖示
         Icon(
           Icons.repeat,
-          color: Colors.grey[600],
+          color: colors.iconSecondary,
           size: 24,
         ),
         const SizedBox(width: 12),
@@ -906,7 +919,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                 _repeatSettings.getDisplayText(),
                 style: TextStyle(
                   fontSize: 15,
-                  color: _repeatSettings.isRepeat ? Colors.black87 : Colors.grey[400],
+                  color: _repeatSettings.isRepeat ? colors.textPrimary : colors.textDisabled,
                 ),
               ),
             ),
@@ -926,7 +939,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             child: Icon(
               Icons.close,
               size: 18,
-              color: Colors.grey[500],
+              color: colors.textSecondary,
             ),
           ),
         ],
@@ -1032,21 +1045,25 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   Future<bool?> _showDiscardChangesDialog() {
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('捨棄變更？'),
-        content: const Text('您有未儲存的變更，確定要捨棄嗎？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('捨棄'),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        final dialogColors = dialogContext.colors;
+        return AlertDialog(
+          backgroundColor: dialogColors.surface,
+          title: Text('捨棄變更？', style: TextStyle(color: dialogColors.textPrimary)),
+          content: Text('您有未儲存的變更，確定要捨棄嗎？', style: TextStyle(color: dialogColors.textPrimary)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text('取消', style: TextStyle(color: dialogColors.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(foregroundColor: dialogColors.error),
+              child: const Text('捨棄'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1057,6 +1074,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     required TimeOfDay time,
     required bool isStart,
   }) {
+    final colors = context.colors;
     final datePickerKey = isStart ? 'startDate' : 'endDate';
     final timePickerKey = isStart ? 'startTime' : 'endTime';
     final isDateExpanded = _expandedPicker == datePickerKey;
@@ -1072,9 +1090,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               width: 40,
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
-                  color: Colors.black,
+                  color: colors.textPrimary,
                 ),
               ),
             ),
@@ -1098,10 +1116,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   decoration: BoxDecoration(
-                    color: isDateExpanded ? Colors.grey[200] : Colors.grey[100],
+                    color: isDateExpanded ? colors.surfaceContainerHigh : colors.surfaceContainer,
                     borderRadius: BorderRadius.circular(12),
                     border: isDateExpanded
-                        ? Border.all(color: Colors.black54, width: 1.5)
+                        ? Border.all(color: colors.borderFocused, width: 1.5)
                         : null,
                   ),
                   child: Row(
@@ -1109,14 +1127,14 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                       Icon(
                         Icons.calendar_today,
                         size: 18,
-                        color: isDateExpanded ? Colors.black87 : Colors.black54,
+                        color: isDateExpanded ? colors.textPrimary : colors.textSecondary,
                       ),
                       const Spacer(),
                       Text(
                         DateFormat('yyyy/MM/dd').format(date),
                         style: TextStyle(
                           fontSize: 14,
-                          color: isDateExpanded ? Colors.black87 : Colors.black87,
+                          color: colors.textPrimary,
                           fontWeight: isDateExpanded ? FontWeight.w500 : FontWeight.normal,
                         ),
                       ),
@@ -1147,10 +1165,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                     decoration: BoxDecoration(
-                      color: isTimeExpanded ? Colors.grey[200] : Colors.grey[100],
+                      color: isTimeExpanded ? colors.surfaceContainerHigh : colors.surfaceContainer,
                       borderRadius: BorderRadius.circular(12),
                       border: isTimeExpanded
-                          ? Border.all(color: Colors.black54, width: 1.5)
+                          ? Border.all(color: colors.borderFocused, width: 1.5)
                           : null,
                     ),
                     child: Row(
@@ -1158,14 +1176,14 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                         Icon(
                           Icons.access_time,
                           size: 18,
-                          color: isTimeExpanded ? Colors.black87 : Colors.black54,
+                          color: isTimeExpanded ? colors.textPrimary : colors.textSecondary,
                         ),
                         const Spacer(),
                         Text(
                           time.format(context),
                           style: TextStyle(
                             fontSize: 14,
-                            color: isTimeExpanded ? Colors.black87 : Colors.black87,
+                            color: colors.textPrimary,
                             fontWeight: isTimeExpanded ? FontWeight.w500 : FontWeight.normal,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -1217,12 +1235,13 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     required DateTime date,
     required bool isStart,
   }) {
+    final colors = context.colors;
     return Container(
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: colors.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: colors.border),
       ),
       child: CalendarDatePicker(
         initialDate: date,
@@ -1255,6 +1274,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     required TimeOfDay time,
     required bool isStart,
   }) {
+    final colors = context.colors;
     // 分鐘選項列表（每 10 分鐘為間隔）
     const minuteOptions = [0, 10, 20, 30, 40, 50];
 
@@ -1265,9 +1285,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: colors.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: colors.border),
       ),
       child: SizedBox(
         height: 180,
@@ -1298,12 +1318,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             ),
 
             // 分隔符
-            const Text(
+            Text(
               ':',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.black54,
+                color: colors.textSecondary,
               ),
             ),
 
@@ -1376,6 +1396,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         if (isEditMode) return const SizedBox.shrink();
 
         // 新增模式：下拉選單
+        final fieldColors = context.colors;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1383,13 +1404,13 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               '行事曆',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[700],
+                color: fieldColors.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: effectiveCalendarId,
-              decoration: _dropdownDecoration,
+              decoration: _dropdownDecoration(fieldColors),
               items: calendars.map((cal) {
                 return DropdownMenuItem<String>(
                   value: cal.id,
@@ -1399,9 +1420,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                       const SizedBox(width: 12),
                       Text(
                         cal.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
+                          color: fieldColors.textPrimary,
                         ),
                       ),
                     ],
@@ -1417,11 +1439,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                   _checkForChanges();
                 }
               },
-              dropdownColor: Colors.white,
+              dropdownColor: fieldColors.surface,
               borderRadius: BorderRadius.circular(12),
               icon: Icon(
                 Icons.keyboard_arrow_down,
-                color: Colors.grey[600],
+                color: fieldColors.iconSecondary,
               ),
             ),
             const SizedBox(height: 16),
@@ -1435,7 +1457,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 建立行程標籤選擇欄位（下拉式選單）
   Widget _buildLabelField() {
-    // 監聽標籤列表
+    final colors = context.colors;
+    // 監聯標籤列表
     final labels = ref.watch(eventLabelsProvider);
 
     // 檢視模式：使用共用的 _buildColoredItemViewField
@@ -1460,7 +1483,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           '行程標籤',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[700],
+            color: colors.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -1468,7 +1491,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         // 使用下拉式選單選擇標籤
         DropdownButtonFormField<String>(
           value: _selectedLabelId,
-          decoration: _dropdownDecoration,
+          decoration: _dropdownDecoration(colors),
           items: labels.map((label) {
             return DropdownMenuItem<String>(
               value: label.id,
@@ -1478,9 +1501,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                   const SizedBox(width: 12),
                   Text(
                     label.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
+                      color: colors.textPrimary,
                     ),
                   ),
                 ],
@@ -1497,11 +1521,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             }
           },
           // 自訂下拉選單樣式
-          dropdownColor: Colors.white,
+          dropdownColor: colors.surface,
           borderRadius: BorderRadius.circular(12),
           icon: Icon(
             Icons.keyboard_arrow_down,
-            color: Colors.grey[600],
+            color: colors.iconSecondary,
           ),
         ),
       ],
@@ -1509,9 +1533,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   }
 
   /// 下拉選單共用裝飾
-  InputDecoration get _dropdownDecoration => InputDecoration(
+  InputDecoration _dropdownDecoration(AppColors colors) => InputDecoration(
     filled: true,
-    fillColor: Colors.grey[100],
+    fillColor: colors.surfaceContainer,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: BorderSide.none,
@@ -1547,6 +1571,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 建立提醒時間選擇欄位（複選）
   Widget _buildReminderField() {
+    final colors = context.colors;
     // 檢視模式：使用共用的 _buildViewField
     if (_isCurrentlyViewMode) {
       return _buildViewField(
@@ -1564,7 +1589,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           '提醒時間',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[700],
+            color: colors.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -1578,23 +1603,23 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: colors.surfaceContainer,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
-                const Icon(Icons.notifications_outlined, size: 22),
+                Icon(Icons.notifications_outlined, size: 22, color: colors.icon),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     _getSelectedRemindersText(),
                     style: TextStyle(
                       fontSize: 15,
-                      color: _selectedReminders.isEmpty ? Colors.grey[500] : Colors.black87,
+                      color: _selectedReminders.isEmpty ? colors.textDisabled : colors.textPrimary,
                     ),
                   ),
                 ),
-                Icon(Icons.keyboard_arrow_down, color: Colors.grey[600]),
+                Icon(Icons.keyboard_arrow_down, color: colors.iconSecondary),
               ],
             ),
           ),
@@ -1676,10 +1701,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
     // 驗證時間邏輯
     if (endDateTime.isBefore(startDateTime)) {
+      final colors = context.colors;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('結束時間不能早於開始時間'),
-          backgroundColor: const Color(0xFF333333),
+        SnackBar(
+          content: const Text('結束時間不能早於開始時間'),
+          backgroundColor: colors.error,
         ),
       );
       return;
@@ -1843,20 +1869,24 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       // 普通行程：顯示確認對話框
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('刪除行程'),
-          content: const Text('確定要刪除這個行程嗎？'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('刪除', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
+        builder: (dialogContext) {
+          final dialogColors = dialogContext.colors;
+          return AlertDialog(
+            backgroundColor: dialogColors.surface,
+            title: Text('刪除行程', style: TextStyle(color: dialogColors.textPrimary)),
+            content: Text('確定要刪除這個行程嗎？', style: TextStyle(color: dialogColors.textPrimary)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text('取消', style: TextStyle(color: dialogColors.textSecondary)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text('刪除', style: TextStyle(color: dialogColors.error)),
+              ),
+            ],
+          );
+        },
       );
 
       if (confirmed != true) {
@@ -1906,32 +1936,34 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 顯示重複行程編輯選項選單
   Future<RecurrenceEditChoice?> _showRecurrenceEditDialog() async {
+    final colors = context.colors;
     return showMenu<RecurrenceEditChoice>(
       context: context,
       position: _getMenuPosition(),
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       items: [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: RecurrenceEditChoice.thisOnly,
           child: Text(
             '僅此行程',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: colors.textPrimary),
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: RecurrenceEditChoice.thisAndFollowing,
           child: Text(
             '此行程及之後',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: colors.textPrimary),
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: RecurrenceEditChoice.all,
           child: Text(
             '所有行程',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: colors.textPrimary),
           ),
         ),
       ],
@@ -1940,43 +1972,45 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 顯示重複行程刪除選項選單
   Future<RecurrenceDeleteChoice?> _showRecurrenceDeleteDialog() async {
+    final colors = context.colors;
     return showMenu<RecurrenceDeleteChoice>(
       context: context,
       position: _getMenuPosition(),
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       items: [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: RecurrenceDeleteChoice.thisOnly,
           child: Text(
             '僅此行程',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
-              color: Colors.red,
+              color: colors.error,
             ),
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: RecurrenceDeleteChoice.thisAndFollowing,
           child: Text(
             '此行程及之後',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
-              color: Colors.red,
+              color: colors.error,
             ),
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: RecurrenceDeleteChoice.all,
           child: Text(
             '所有行程',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
-              color: Colors.red,
+              color: colors.error,
             ),
           ),
         ),
@@ -1996,6 +2030,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   ///
   /// [isCopy] 為 true 時執行複製，false 時執行移動
   Future<void> _showCalendarSubMenu({required bool isCopy}) async {
+    final colors = context.colors;
     final calendarsAsync = ref.read(calendarsProvider);
     final calendars = calendarsAsync.valueOrNull ?? [];
 
@@ -2009,6 +2044,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     final selectedCalendarId = await showMenu<String>(
       context: context,
       position: _getMenuPosition(),
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -2029,15 +2065,16 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               Expanded(
                 child: Text(
                   calendar.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
+                    color: colors.textPrimary,
                   ),
                 ),
               ),
               // 標示當前行事曆
               if (calendar.id == _selectedCalendarId)
-                Icon(Icons.check, size: 18, color: Colors.grey[600]),
+                Icon(Icons.check, size: 18, color: colors.iconSecondary),
             ],
           ),
         );
@@ -2165,6 +2202,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// 建立檢視模式的標題區塊
   Widget _buildViewTitleSection() {
+    final colors = context.colors;
     // 監聽標籤列表，取得當前標籤顏色
     final labels = ref.watch(eventLabelsProvider);
     final currentLabel = labels.firstWhere(
@@ -2189,10 +2227,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         Text(
           _titleController.text,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
+            color: colors.textPrimary,
             height: 1.4,
           ),
         ),
@@ -2253,19 +2291,20 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     required IconData icon,
     required String content,
   }) {
+    final colors = context.colors;
     return Row(
       children: [
         Icon(
           icon,
           size: 20,
-          color: Colors.grey[500],
+          color: colors.iconSecondary,
         ),
         const SizedBox(width: 12),
         Text(
           content,
           style: TextStyle(
             fontSize: 16,
-            color: Colors.grey[800],
+            color: colors.textPrimary,
           ),
         ),
       ],
@@ -2297,6 +2336,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     required Color color,
     bool addBottomSpacing = false,
   }) {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2304,7 +2344,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           label,
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[600],
+            color: colors.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -2313,7 +2353,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.grey[100],
+            color: colors.surfaceContainer,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -2322,9 +2362,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               const SizedBox(width: 12),
               Text(
                 name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
-                  color: Colors.black87,
+                  color: colors.textPrimary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -2343,6 +2383,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     required IconData icon,
     int maxLines = 1,
   }) {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2350,7 +2391,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           label,
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[600],
+            color: colors.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -2359,20 +2400,20 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.grey[100],
+            color: colors.surfaceContainer,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             crossAxisAlignment: maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
             children: [
-              Icon(icon, size: 20, color: Colors.grey[600]),
+              Icon(icon, size: 20, color: colors.iconSecondary),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
-                    color: Colors.black87,
+                    color: colors.textPrimary,
                   ),
                   maxLines: maxLines,
                   overflow: maxLines > 1 ? TextOverflow.visible : TextOverflow.ellipsis,
@@ -2417,10 +2458,11 @@ class _ReminderPickerBottomSheetState extends State<_ReminderPickerBottomSheet> 
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
         child: Column(
@@ -2432,11 +2474,11 @@ class _ReminderPickerBottomSheetState extends State<_ReminderPickerBottomSheet> 
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: colors.dragHandle,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            
+
             // 標題和按鈕列
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2449,28 +2491,29 @@ class _ReminderPickerBottomSheetState extends State<_ReminderPickerBottomSheet> 
                     child: Text(
                       '取消',
                       style: TextStyle(
-                        color: Colors.grey[600],
+                        color: colors.textSecondary,
                         fontSize: 16,
                       ),
                     ),
                   ),
-                  
+
                   // 標題
-                  const Text(
+                  Text(
                     '選擇提醒時間',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
+                      color: colors.textPrimary,
                     ),
                   ),
-                  
+
                   // 確認按鈕
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(_selected),
-                    child: const Text(
+                    child: Text(
                       '確認',
                       style: TextStyle(
-                        color: Colors.black,
+                        color: colors.primary,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -2479,16 +2522,16 @@ class _ReminderPickerBottomSheetState extends State<_ReminderPickerBottomSheet> 
                 ],
               ),
             ),
-            
+
             const Divider(height: 1),
-            
+
             // 提醒選項列表
             ...widget.options.entries.map((entry) {
               final isChecked = _selected.contains(entry.key);
               return CheckboxListTile(
-                title: Text(entry.value),
+                title: Text(entry.value, style: TextStyle(color: colors.textPrimary)),
                 value: isChecked,
-                activeColor: Colors.black,
+                activeColor: colors.primary,
                 onChanged: (value) {
                   setState(() {
                     if (value == true) {
@@ -2500,7 +2543,7 @@ class _ReminderPickerBottomSheetState extends State<_ReminderPickerBottomSheet> 
                 },
               );
             }),
-            
+
             const SizedBox(height: 16),
           ],
         ),
@@ -2577,6 +2620,7 @@ class _InlineWheelPickerState extends State<_InlineWheelPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Stack(
       children: [
         // 選中項目的背景高亮
@@ -2585,7 +2629,7 @@ class _InlineWheelPickerState extends State<_InlineWheelPicker> {
             height: 40,
             margin: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.grey[200],
+              color: colors.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(8),
             ),
           ),
@@ -2606,7 +2650,8 @@ class _InlineWheelPickerState extends State<_InlineWheelPicker> {
           },
           childDelegate: ListWheelChildBuilderDelegate(
             childCount: widget.itemCount,
-            builder: (context, index) {
+            builder: (builderContext, index) {
+              final builderColors = builderContext.colors;
               final isSelected = index == _selectedIndex;
               return Center(
                 child: Row(
@@ -2617,7 +2662,7 @@ class _InlineWheelPickerState extends State<_InlineWheelPicker> {
                       style: TextStyle(
                         fontSize: isSelected ? 20 : 16,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected ? Colors.black : Colors.grey[500],
+                        color: isSelected ? builderColors.textPrimary : builderColors.textDisabled,
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -2625,7 +2670,7 @@ class _InlineWheelPickerState extends State<_InlineWheelPicker> {
                       widget.suffix,
                       style: TextStyle(
                         fontSize: isSelected ? 14 : 12,
-                        color: isSelected ? Colors.black54 : Colors.grey[400],
+                        color: isSelected ? builderColors.textSecondary : builderColors.textDisabled,
                       ),
                     ),
                   ],

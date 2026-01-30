@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/event_provider.dart';
+import '../../../theme/app_colors.dart';
 import '../../../utils/constants.dart';
 
 /// 底部導航欄元件
@@ -27,14 +28,15 @@ class AppBottomNav extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
     // 監聽是否有未讀通知
     final hasUnreadNotification = ref.watch(hasUnreadNotificationProvider);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: colors.shadow,
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -48,6 +50,7 @@ class AppBottomNav extends ConsumerWidget {
               // 第一個位置：行事曆
               Expanded(
                 child: _buildNavItem(
+                  context: context,
                   icon: Icons.calendar_today,
                   label: '行事曆',
                   index: 0,
@@ -56,6 +59,7 @@ class AppBottomNav extends ConsumerWidget {
               // 第二個位置：通知功能
               Expanded(
                 child: _buildNavItem(
+                  context: context,
                   icon: Icons.notifications_outlined,
                   label: '通知',
                   index: 1,
@@ -64,11 +68,12 @@ class AppBottomNav extends ConsumerWidget {
               ),
               // 第三個位置：麥克風按鈕（中央）
               Expanded(
-                child: _buildMicButton(),
+                child: _buildMicButton(context),
               ),
               // 第四個位置：備忘錄功能
               Expanded(
                 child: _buildNavItem(
+                  context: context,
                   icon: Icons.note_alt_outlined,
                   label: '備忘錄',
                   index: 3,
@@ -77,6 +82,7 @@ class AppBottomNav extends ConsumerWidget {
               // 第五個位置：個人資料
               Expanded(
                 child: _buildNavItem(
+                  context: context,
                   icon: Icons.person_outline,
                   label: '我的帳號',
                   index: 4,
@@ -91,13 +97,15 @@ class AppBottomNav extends ConsumerWidget {
 
   /// 建立導航項目
   Widget _buildNavItem({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required int index,
     bool showBadge = false,
   }) {
+    final colors = context.colors;
     final isActive = currentIndex == index;
-    final color = isActive ? Colors.black : Colors.grey[500]!;
+    final color = isActive ? colors.icon : colors.iconSecondary;
 
     return InkWell(
       onTap: () => onItemTap(index),
@@ -124,8 +132,8 @@ class AppBottomNav extends ConsumerWidget {
                     child: Container(
                       width: 10,
                       height: 10,
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
+                      decoration: BoxDecoration(
+                        color: colors.error,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -148,7 +156,8 @@ class AppBottomNav extends ConsumerWidget {
   }
 
   /// 建立麥克風按鈕（浮凸立體效果）
-  Widget _buildMicButton() {
+  Widget _buildMicButton(BuildContext context) {
+    final colors = context.colors;
     return InkWell(
       onTap: () => onItemTap(2),
       borderRadius: BorderRadius.circular(30),
@@ -157,36 +166,36 @@ class AppBottomNav extends ConsumerWidget {
         height: 60,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFFFFFFFF),
-              Color(0xFFF0F0F0),
+              colors.surface,
+              colors.surfaceContainer,
             ],
           ),
           border: Border.all(
-            color: Colors.black,
+            color: colors.primary,
             width: 2,
           ),
           boxShadow: [
             // 底部深色陰影（立體感）
             BoxShadow(
-              color: Colors.black.withOpacity(0.25),
+              color: colors.primary.withOpacity(0.25),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
             // 頂部高光（浮凸效果）
             BoxShadow(
-              color: Colors.white.withOpacity(0.9),
+              color: colors.surface.withOpacity(0.9),
               blurRadius: 4,
               offset: const Offset(0, -2),
             ),
           ],
         ),
-        child: const Icon(
+        child: Icon(
           Icons.mic,
-          color: Colors.black,
+          color: colors.icon,
           size: 32,
         ),
       ),

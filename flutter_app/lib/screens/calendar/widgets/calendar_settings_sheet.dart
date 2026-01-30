@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/event_label_model.dart';
 import '../../../models/holiday_model.dart';
 import '../../../providers/calendar_provider.dart';
+import '../../../theme/app_colors.dart';
 import '../../../utils/constants.dart';
 import 'calendar_members_sheet.dart';
 import 'event_search_sheet.dart';
@@ -21,10 +22,11 @@ class CalendarSettingsSheet extends ConsumerWidget {
 
   /// 顯示設定面板的靜態方法
   static void show(BuildContext context) {
+    final colors = context.colors;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -102,35 +104,45 @@ class CalendarSettingsSheet extends ConsumerWidget {
           
           
           // 顯示農曆
-          ListTile(
-            leading: const Icon(Icons.event_note),
-            title: const Text('顯示農曆'),
-            subtitle: Text(showLunar ? '已開啟' : '已關閉'),
-            trailing: Transform.scale(
-              scale: 0.7,
-              child: Switch(
-                value: showLunar,
-                activeColor: Colors.black,
-                onChanged: (value) => _updateShowLunar(context, ref, value),
-              ),
-            ),
-            onTap: () => _updateShowLunar(context, ref, !showLunar),
+          Builder(
+            builder: (context) {
+              final colors = context.colors;
+              return ListTile(
+                leading: const Icon(Icons.event_note),
+                title: const Text('顯示農曆'),
+                subtitle: Text(showLunar ? '已開啟' : '已關閉'),
+                trailing: Transform.scale(
+                  scale: 0.7,
+                  child: Switch(
+                    value: showLunar,
+                    activeColor: colors.primary,
+                    onChanged: (value) => _updateShowLunar(context, ref, value),
+                  ),
+                ),
+                onTap: () => _updateShowLunar(context, ref, !showLunar),
+              );
+            },
           ),
 
           // 顯示節日
-          ListTile(
-            leading: const Icon(Icons.celebration),
-            title: const Text('顯示節日'),
-            subtitle: Text(showHolidays ? '已開啟' : '已關閉'),
-            trailing: Transform.scale(
-              scale: 0.7,
-              child: Switch(
-                value: showHolidays,
-                activeColor: Colors.black,
-                onChanged: (value) => _updateShowHolidays(context, ref, value),
-              ),
-            ),
-            onTap: () => _updateShowHolidays(context, ref, !showHolidays),
+          Builder(
+            builder: (context) {
+              final colors = context.colors;
+              return ListTile(
+                leading: const Icon(Icons.celebration),
+                title: const Text('顯示節日'),
+                subtitle: Text(showHolidays ? '已開啟' : '已關閉'),
+                trailing: Transform.scale(
+                  scale: 0.7,
+                  child: Switch(
+                    value: showHolidays,
+                    activeColor: colors.primary,
+                    onChanged: (value) => _updateShowHolidays(context, ref, value),
+                  ),
+                ),
+                onTap: () => _updateShowHolidays(context, ref, !showHolidays),
+              );
+            },
           ),
 
           // 節日地區選擇（只在顯示節日開啟時顯示，帶動畫過渡）
@@ -338,10 +350,11 @@ class CalendarSettingsSheet extends ConsumerWidget {
 
   /// 顯示標籤設定面板
   void _showLabelSettingsSheet(BuildContext context) {
+    final colors = context.colors;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -366,7 +379,9 @@ class CalendarSettingsSheet extends ConsumerWidget {
 
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) {
+        final colors = dialogContext.colors;
+        return AlertDialog(
         title: const Text('退出行事曆'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -377,7 +392,7 @@ class CalendarSettingsSheet extends ConsumerWidget {
             Text(
               '退出後將無法查看此行事曆的行程。',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: colors.textSecondary,
                 fontSize: 13,
               ),
             ),
@@ -390,8 +405,8 @@ class CalendarSettingsSheet extends ConsumerWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: colors.error,
+              foregroundColor: colors.textOnPrimary,
             ),
             onPressed: () async {
               Navigator.pop(dialogContext);
@@ -423,7 +438,8 @@ class CalendarSettingsSheet extends ConsumerWidget {
             child: const Text('退出'),
           ),
         ],
-      ),
+      );
+      },
     );
   }
 
@@ -446,7 +462,9 @@ class CalendarSettingsSheet extends ConsumerWidget {
     // 第一次確認
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) {
+        final colors = dialogContext.colors;
+        return AlertDialog(
         title: const Text('刪除行事曆'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -454,10 +472,10 @@ class CalendarSettingsSheet extends ConsumerWidget {
           children: [
             Text('確定要刪除「${selectedCalendar.name}」嗎？'),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '⚠️ 此操作無法復原，該行事曆下的所有行程也會一併刪除。',
               style: TextStyle(
-                color: Colors.red,
+                color: colors.error,
                 fontSize: 13,
               ),
             ),
@@ -470,8 +488,8 @@ class CalendarSettingsSheet extends ConsumerWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: colors.error,
+              foregroundColor: colors.textOnPrimary,
             ),
             onPressed: () {
               Navigator.pop(dialogContext);
@@ -487,7 +505,8 @@ class CalendarSettingsSheet extends ConsumerWidget {
             child: const Text('刪除'),
           ),
         ],
-      ),
+      );
+      },
     );
   }
 
@@ -501,7 +520,9 @@ class CalendarSettingsSheet extends ConsumerWidget {
   ) {
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) {
+        final colors = dialogContext.colors;
+        return AlertDialog(
         title: const Text('再次確認'),
         content: Text(
           '您即將永久刪除「$calendarName」及其所有行程。\n\n確定要繼續嗎？',
@@ -513,8 +534,8 @@ class CalendarSettingsSheet extends ConsumerWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: colors.error,
+              foregroundColor: colors.textOnPrimary,
             ),
             onPressed: () async {
               // 先關閉確認對話框
@@ -550,7 +571,8 @@ class CalendarSettingsSheet extends ConsumerWidget {
             child: const Text('確定刪除'),
           ),
         ],
-      ),
+      );
+      },
     );
   }
 }
@@ -696,15 +718,20 @@ class _LabelSettingsSheetState extends ConsumerState<_LabelSettingsSheet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // 取消按鈕
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      '取消',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 16,
-                      ),
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final colors = context.colors;
+                      return TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          '取消',
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 16,
+                          ),
+                        ),
+                      );
+                    },
                   ),
 
                   // 標題
@@ -717,16 +744,21 @@ class _LabelSettingsSheetState extends ConsumerState<_LabelSettingsSheet> {
                   ),
 
                   // 重設按鈕
-                  TextButton(
-                    onPressed: _resetToDefault,
-                    child: const Text(
-                      '重設',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final colors = context.colors;
+                      return TextButton(
+                        onPressed: _resetToDefault,
+                        child: Text(
+                          '重設',
+                          style: TextStyle(
+                            color: colors.primary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -735,18 +767,23 @@ class _LabelSettingsSheetState extends ConsumerState<_LabelSettingsSheet> {
             const Divider(height: 1),
             
             // 提示文字
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: kPaddingMedium,
-                vertical: kPaddingSmall,
-              ),
-              child: Text(
-                '點擊標籤名稱可以直接編輯',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
+            Builder(
+              builder: (context) {
+                final colors = context.colors;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: kPaddingMedium,
+                    vertical: kPaddingSmall,
+                  ),
+                  child: Text(
+                    '點擊標籤名稱可以直接編輯',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                );
+              },
             ),
             
             // 標籤列表
@@ -854,36 +891,42 @@ class _LabelListItem extends StatelessWidget {
                     style: const TextStyle(fontSize: 16),
                     onSubmitted: (_) => onEditComplete(),
                   )
-                : GestureDetector(
-                    onTap: onTap,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              label.name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
+                : Builder(
+                    builder: (context) {
+                      final colors = context.colors;
+                      return GestureDetector(
+                        onTap: onTap,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceContainer,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  label.name,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: colors.textPrimary,
+                                  ),
+                                ),
                               ),
-                            ),
+                              Icon(
+                                Icons.edit,
+                                size: 16,
+                                color: colors.iconTertiary,
+                              ),
+                            ],
                           ),
-                          Icon(
-                            Icons.edit,
-                            size: 16,
-                            color: Colors.grey[400],
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   ),
           ),
         ],
@@ -927,10 +970,11 @@ class _RegionPickerBottomSheetState extends State<_RegionPickerBottomSheet> {
     // 取得所有可用地區
     final availableRegions = HolidayManager.getAvailableRegions();
     
+    final colors = context.colors;
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(20),
         ),
       ),
@@ -953,31 +997,32 @@ class _RegionPickerBottomSheetState extends State<_RegionPickerBottomSheet> {
                     child: Text(
                       '取消',
                       style: TextStyle(
-                        color: Colors.grey[600],
+                        color: colors.textSecondary,
                         fontSize: 16,
                       ),
                     ),
                   ),
-                  
+
                   // 標題
-                  const Text(
+                  Text(
                     '選擇地區',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
+                      color: colors.textPrimary,
                     ),
                   ),
-                  
+
                   // 確認按鈕
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).pop();
                       widget.onConfirm(_selected);
                     },
-                    child: const Text(
+                    child: Text(
                       '確認',
                       style: TextStyle(
-                        color: Colors.black,
+                        color: colors.primary,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -986,13 +1031,13 @@ class _RegionPickerBottomSheetState extends State<_RegionPickerBottomSheet> {
                 ],
               ),
             ),
-            
+
             const Divider(height: 1),
-            
+
             // 地區選項列表
             ...availableRegions.map((region) {
               final isChecked = _selected.contains(region.id);
-              
+
               return CheckboxListTile(
                 title: Text(region.name),
                 subtitle: region.isImplemented
@@ -1001,11 +1046,11 @@ class _RegionPickerBottomSheetState extends State<_RegionPickerBottomSheet> {
                         '即將推出',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[500],
+                          color: colors.textDisabled,
                         ),
                       ),
                 value: isChecked,
-                activeColor: Colors.black,
+                activeColor: colors.primary,
                 onChanged: (value) {
                   setState(() {
                     if (value == true) {
@@ -1020,7 +1065,7 @@ class _RegionPickerBottomSheetState extends State<_RegionPickerBottomSheet> {
                 },
               );
             }),
-            
+
             const SizedBox(height: 16),
           ],
         ),

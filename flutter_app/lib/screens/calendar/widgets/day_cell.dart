@@ -3,6 +3,7 @@ import 'package:lunar/lunar.dart' show Solar;
 import 'package:table_calendar/table_calendar.dart';
 import '../../../models/event_model.dart';
 import '../../../models/holiday_model.dart';
+import '../../../theme/app_colors.dart';
 import '../../../utils/constants.dart';
 import '../utils/calendar_utils.dart';
 
@@ -127,25 +128,26 @@ class DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     // 判斷日期狀態
     final now = DateTime.now();
-    final isToday = day.year == now.year && 
-                    day.month == now.month && 
+    final isToday = day.year == now.year &&
+                    day.month == now.month &&
                     day.day == now.day;
     final isSelected = isSameDay(selectedDay, day);
-    
+
     // 只有在月視圖中才需要反灰非當月日期
     // 週視圖和雙週視圖中所有日期都應該正常顯示
-    final isOutside = calendarFormat == CalendarFormat.month && 
+    final isOutside = calendarFormat == CalendarFormat.month &&
                       day.month != focusedMonth.month;
-    
+
     // 決定文字顏色
-    final textColor = isOutside ? Colors.grey[400]! : Colors.black87;
-    
+    final textColor = isOutside ? colors.textDisabled : colors.textPrimary;
+
     // 選中時的背景色
     Color? containerBackgroundColor;
     if (isSelected) {
-      containerBackgroundColor = Colors.black.withOpacity(0.15);
+      containerBackgroundColor = colors.primary.withOpacity(0.15);
     }
     
     // 取得當日的節日列表（根據選擇的地區）
@@ -207,11 +209,11 @@ class DayCell extends StatelessWidget {
             clipBehavior: Clip.hardEdge,
             decoration: BoxDecoration(
               color: isHovering
-                  ? Colors.blue.withOpacity(0.2)
+                  ? colors.primary.withOpacity(0.2)
                   : containerBackgroundColor,
               borderRadius: BorderRadius.circular(6),
               border: isHovering
-                  ? Border.all(color: Colors.blue, width: 2)
+                  ? Border.all(color: colors.primary, width: 2)
                   : null,
             ),
             child: Column(
@@ -228,17 +230,17 @@ class DayCell extends StatelessWidget {
                       ? Container(
                           width: 20,
                           height: 20,
-                          decoration: const BoxDecoration(
-                            color: Colors.black,
+                          decoration: BoxDecoration(
+                            color: colors.primary,
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
                           child: Text(
                             '${day.day}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: colors.onPrimary,
                             ),
                           ),
                         )
@@ -249,7 +251,7 @@ class DayCell extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             // 國定假日或傳統節日日期數字顯示紅色
                             color: hasNationalOrTraditionalHoliday && !isOutside
-                                ? Colors.red
+                                ? colors.holiday
                                 : textColor,
                           ),
                         ),
@@ -259,7 +261,7 @@ class DayCell extends StatelessWidget {
                       lunarDayText,
                       style: TextStyle(
                         fontSize: 9,
-                        color: isOutside ? Colors.grey[400] : Colors.grey[600],
+                        color: isOutside ? colors.textDisabled : colors.textSecondary,
                         height: 1.2,
                       ),
                     ),
@@ -363,7 +365,7 @@ class DayCell extends StatelessWidget {
                                 '+$remainingEvents',
                                 style: TextStyle(
                                   fontSize: 8,
-                                  color: isOutside ? Colors.grey[400] : Colors.black87,
+                                  color: isOutside ? colors.textDisabled : colors.textPrimary,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -385,7 +387,7 @@ class DayCell extends StatelessWidget {
 }
 
 /// 節日事件項目元件
-/// 
+///
 /// 以紅色背景顯示節日（類似 TimeTree）
 class _HolidayEventItem extends StatelessWidget {
   final Holiday holiday;
@@ -398,14 +400,15 @@ class _HolidayEventItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
         // 節日紅色
-        color: isOutside 
-            ? Colors.grey.withOpacity(0.3)
-            : Colors.red.withOpacity(0.85),
+        color: isOutside
+            ? colors.textDisabled.withOpacity(0.3)
+            : colors.holiday.withOpacity(0.85),
         borderRadius: BorderRadius.circular(2),
       ),
       alignment: Alignment.center,
@@ -413,7 +416,7 @@ class _HolidayEventItem extends StatelessWidget {
         holiday.name,
         style: TextStyle(
           fontSize: 10,
-          color: isOutside ? Colors.grey[500] : Colors.white,
+          color: isOutside ? colors.textDisabled : colors.textOnPrimary,
           fontWeight: FontWeight.w500,
           height: 1.2,
         ),
@@ -448,6 +451,7 @@ class _DraggableSingleDayEventItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final eventColor = CalendarUtils.getEventColor(event, rowAllocation);
 
     return LongPressDraggable<EventDragData>(
@@ -469,9 +473,9 @@ class _DraggableSingleDayEventItem extends StatelessWidget {
           ),
           child: Text(
             event.title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Colors.white,
+              color: colors.textOnPrimary,
               fontWeight: FontWeight.w500,
             ),
             maxLines: 1,
@@ -515,16 +519,17 @@ class _SingleDayEventItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final eventColor = CalendarUtils.getEventColor(event, rowAllocation);
-    
+
     // 純顯示元件，不使用 GestureDetector
     // 點擊事件會穿透到父層的 DayCell
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
-        color: isOutside 
-            ? Colors.grey.withOpacity(0.3)
+        color: isOutside
+            ? colors.textDisabled.withOpacity(0.3)
             : eventColor.withOpacity(0.85),
         borderRadius: BorderRadius.circular(2),
       ),
@@ -541,7 +546,7 @@ class _SingleDayEventItem extends StatelessWidget {
               child: Icon(
                 Icons.repeat,
                 size: 8,
-                color: isOutside ? Colors.grey[500] : Colors.white,
+                color: isOutside ? colors.textDisabled : colors.textOnPrimary,
               ),
             ),
           Flexible(
@@ -549,7 +554,7 @@ class _SingleDayEventItem extends StatelessWidget {
               event.title,
               style: TextStyle(
                 fontSize: 10,
-                color: isOutside ? Colors.grey[500] : Colors.white,
+                color: isOutside ? colors.textDisabled : colors.textOnPrimary,
                 fontWeight: FontWeight.w500,
                 height: 1.2,
               ),

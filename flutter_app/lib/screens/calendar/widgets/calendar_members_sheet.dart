@@ -4,6 +4,7 @@ import '../../../models/calendar_model.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/calendar_provider.dart';
+import '../../../theme/app_colors.dart';
 import '../../../utils/constants.dart';
 
 /// 行事曆成員管理面板
@@ -20,11 +21,12 @@ class CalendarMembersSheet extends ConsumerStatefulWidget {
 
   /// 顯示成員面板的靜態方法
   static void show(BuildContext context) {
+    final colors = context.colors;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -106,21 +108,24 @@ class _CalendarMembersSheetState extends ConsumerState<CalendarMembersSheet> {
     // 確認對話框
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('移除成員'),
-        content: const Text('確定要移除此成員嗎？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('移除'),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        final dialogColors = dialogContext.colors;
+        return AlertDialog(
+          title: const Text('移除成員'),
+          content: const Text('確定要移除此成員嗎？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: TextButton.styleFrom(foregroundColor: dialogColors.error),
+              child: const Text('移除'),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed != true) return;
@@ -148,6 +153,7 @@ class _CalendarMembersSheetState extends ConsumerState<CalendarMembersSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final calendar = ref.watch(selectedCalendarProvider);
     final currentUserId = ref.watch(currentUserIdProvider);
     final membersAsync = ref.watch(calendarMembersProvider);
@@ -166,7 +172,7 @@ class _CalendarMembersSheetState extends ConsumerState<CalendarMembersSheet> {
           width: 40,
           height: 4,
           decoration: BoxDecoration(
-            color: Colors.grey[300],
+            color: colors.border,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -186,7 +192,7 @@ class _CalendarMembersSheetState extends ConsumerState<CalendarMembersSheet> {
                 child: Text(
                   '關閉',
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: colors.textSecondary,
                     fontSize: 16,
                   ),
                 ),
@@ -196,18 +202,19 @@ class _CalendarMembersSheetState extends ConsumerState<CalendarMembersSheet> {
               Flexible(
                 child: Column(
                   children: [
-                    const Text(
+                    Text(
                       '成員',
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
+                        color: colors.textPrimary,
                       ),
                     ),
                     Text(
                       calendar.name,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: colors.textSecondary,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -250,20 +257,20 @@ class _CalendarMembersSheetState extends ConsumerState<CalendarMembersSheet> {
               ElevatedButton(
                 onPressed: _isInviting ? null : _inviteMember,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colors.primary,
+                  foregroundColor: colors.textOnPrimary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,
                   ),
                 ),
                 child: _isInviting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: colors.textOnPrimary,
                         ),
                       )
                     : const Text('邀請'),
@@ -304,13 +311,14 @@ class _CalendarMembersSheetState extends ConsumerState<CalendarMembersSheet> {
     String? currentUserId,
     bool isOwner,
   ) {
+    final colors = context.colors;
     if (members.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Text(
             '目前沒有其他成員',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: colors.textDisabled),
           ),
         ),
       );
@@ -357,44 +365,47 @@ class _CalendarMembersSheetState extends ConsumerState<CalendarMembersSheet> {
 
     final newNickname = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('編輯暱稱'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '設定你在「${calendar.name}」中的暱稱',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600],
+      builder: (dialogContext) {
+        final dialogColors = dialogContext.colors;
+        return AlertDialog(
+          title: const Text('編輯暱稱'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '設定你在「${calendar.name}」中的暱稱',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: dialogColors.textSecondary,
+                ),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: member.getDisplayName(),
+                  labelText: '暱稱',
+                  border: const OutlineInputBorder(),
+                  helperText: '留空則使用原始名稱',
+                ),
+                onSubmitted: (value) => Navigator.pop(dialogContext, value),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: member.getDisplayName(),
-                labelText: '暱稱',
-                border: const OutlineInputBorder(),
-                helperText: '留空則使用原始名稱',
-              ),
-              onSubmitted: (value) => Navigator.pop(context, value),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, controller.text),
+              child: const Text('儲存'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('儲存'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     if (newNickname == null) return;
@@ -448,6 +459,7 @@ class _MemberListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     // 取得顯示名稱（優先使用暱稱）
     final nickname = calendar.memberNicknames[member.id];
     final displayName = nickname ?? member.getDisplayName();
@@ -458,15 +470,15 @@ class _MemberListItem extends StatelessWidget {
 
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: Colors.grey[200],
+        backgroundColor: colors.surfaceContainer,
         backgroundImage:
             member.photoURL != null ? NetworkImage(member.photoURL!) : null,
         child: member.photoURL == null
             ? Text(
                 originalName.substring(0, 1).toUpperCase(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.black54,
+                  color: colors.textSecondary,
                 ),
               )
             : null,
@@ -509,31 +521,32 @@ class _MemberListItem extends StatelessWidget {
               member.getDisplayName(),
               style: TextStyle(
                 fontSize: 11,
-                color: Colors.grey[500],
+                color: colors.textDisabled,
               ),
             ),
           Text(
             member.email,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: colors.textSecondary,
             ),
           ),
         ],
       ),
-      trailing: _buildTrailing(),
+      trailing: _buildTrailing(context),
     );
   }
 
   /// 建立右側按鈕
-  Widget? _buildTrailing() {
+  Widget? _buildTrailing(BuildContext context) {
+    final colors = context.colors;
     // 自己可以編輯暱稱
     if (isSelf && onEditNickname != null) {
       return IconButton(
         icon: Icon(
           Icons.edit,
           size: 20,
-          color: Colors.grey[500],
+          color: colors.iconSecondary,
         ),
         onPressed: onEditNickname,
       );
@@ -543,7 +556,7 @@ class _MemberListItem extends StatelessWidget {
     if (showRemoveButton) {
       return IconButton(
         icon: const Icon(Icons.close, size: 20),
-        color: Colors.red[400],
+        color: colors.error,
         onPressed: onRemove,
       );
     }

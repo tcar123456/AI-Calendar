@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../../theme/app_colors.dart';
 
 /// 行事曆標題區域元件
 /// 
@@ -45,9 +46,10 @@ class CalendarHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     // 根據視圖格式決定標題文字
     final title = _getTitle();
-    
+
     // 格式切換按鈕的文字
     String formatButtonText;
     switch (calendarFormat) {
@@ -61,7 +63,7 @@ class CalendarHeader extends StatelessWidget {
         formatButtonText = '週';
         break;
     }
-    
+
     // 導航按鈕的 tooltip
     String prevTooltip;
     String nextTooltip;
@@ -79,7 +81,7 @@ class CalendarHeader extends StatelessWidget {
         nextTooltip = '下一週';
         break;
     }
-    
+
     return Container(
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -91,7 +93,7 @@ class CalendarHeader extends StatelessWidget {
             tooltip: prevTooltip,
             onPressed: onPreviousMonth,
           ),
-          
+
           // 標題（可點擊顯示年月選擇器）
           Expanded(
             child: GestureDetector(
@@ -99,14 +101,15 @@ class CalendarHeader extends StatelessWidget {
               child: Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
+                  color: colors.textPrimary,
                 ),
               ),
             ),
           ),
-          
+
           // 格式切換按鈕
           TextButton(
             onPressed: () {
@@ -129,18 +132,18 @@ class CalendarHeader extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.grey[400]!),
+                side: BorderSide(color: colors.iconSecondary),
               ),
             ),
             child: Text(
               formatButtonText,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[700],
+                color: colors.textSecondary,
               ),
             ),
           ),
-          
+
           // 下一頁按鈕
           IconButton(
             icon: const Icon(Icons.chevron_right),
@@ -224,9 +227,10 @@ class DaysOfWeekHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     // 根據週起始日重新排列星期標題
     final weekDays = _getOrderedWeekDays();
-    
+
     return SizedBox(
       height: 30,
       child: Row(
@@ -238,7 +242,7 @@ class DaysOfWeekHeader extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey[600],
+                  color: colors.textSecondary,
                 ),
               ),
             ),

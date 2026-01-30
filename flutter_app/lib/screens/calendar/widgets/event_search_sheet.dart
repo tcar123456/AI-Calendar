@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../models/event_model.dart';
 import '../../../providers/event_provider.dart';
 import '../../../providers/event_label_provider.dart';
+import '../../../theme/app_colors.dart';
 import '../../../utils/constants.dart';
 import '../event_detail_screen.dart';
 
@@ -156,6 +157,7 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
 
   /// 建立標題列
   Widget _buildHeader() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.all(kPaddingMedium),
       child: Row(
@@ -169,17 +171,18 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
           ),
           const SizedBox(width: 12),
           // 搜尋圖示
-          const Icon(
+          Icon(
             Icons.search,
-            color: Colors.black,
+            color: colors.icon,
           ),
           const SizedBox(width: 12),
           // 標題
-          const Text(
+          Text(
             '搜尋行程',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
+              color: colors.textPrimary,
             ),
           ),
         ],
@@ -189,6 +192,7 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
 
   /// 建立搜尋輸入框
   Widget _buildSearchField(AsyncValue<List<CalendarEvent>> eventsAsync) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: kPaddingMedium,
@@ -199,7 +203,7 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
         autofocus: true,
         decoration: InputDecoration(
           hintText: '輸入關鍵字搜尋...',
-          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+          prefixIcon: Icon(Icons.search, color: colors.iconSecondary),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear),
@@ -214,17 +218,17 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
               : null,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey[300]!),
+            borderSide: BorderSide(color: colors.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(
-              color: Colors.black,
+            borderSide: BorderSide(
+              color: colors.borderFocused,
               width: 2,
             ),
           ),
           filled: true,
-          fillColor: Colors.grey[50],
+          fillColor: colors.surfaceContainer,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 12,
@@ -287,6 +291,7 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
     required String message,
     String? subtitle,
   }) {
+    final colors = context.colors;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -294,14 +299,14 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
           Icon(
             icon,
             size: 64,
-            color: Colors.grey[400],
+            color: colors.iconTertiary,
           ),
           const SizedBox(height: 16),
           Text(
             message,
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[600],
+              color: colors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -311,7 +316,7 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
               subtitle,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[500],
+                color: colors.textDisabled,
               ),
             ),
           ],
@@ -380,58 +385,68 @@ class _EventSearchSheetState extends ConsumerState<EventSearchSheet> {
             ),
         ],
       ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 4),
-          // 時間
-          Row(
+      subtitle: Builder(
+        builder: (context) {
+          final colors = context.colors;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.access_time,
-                size: 14,
-                color: Colors.grey[500],
-              ),
-              const SizedBox(width: 4),
-              Text(
-                timeText,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-          // 地點（如果有）
-          if (event.location != null && event.location!.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                Icon(
-                  Icons.location_on,
-                  size: 14,
-                  color: Colors.grey[500],
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    event.location!,
+              const SizedBox(height: 4),
+              // 時間
+              Row(
+                children: [
+                  Icon(
+                    Icons.access_time,
+                    size: 14,
+                    color: colors.textDisabled,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    timeText,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey[600],
+                      color: colors.textSecondary,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
+                ],
+              ),
+              // 地點（如果有）
+              if (event.location != null && event.location!.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      size: 14,
+                      color: colors.textDisabled,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        event.location!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
-        ],
+            ],
+          );
+        },
       ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: Colors.grey,
+      trailing: Builder(
+        builder: (context) {
+          final colors = context.colors;
+          return Icon(
+            Icons.chevron_right,
+            color: colors.iconSecondary,
+          );
+        },
       ),
       onTap: () => _navigateToEventDetail(event),
     );

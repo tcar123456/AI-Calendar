@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../utils/constants.dart';
 
 /// 個人資料編輯頁面
@@ -125,21 +126,24 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Future<void> _showSignOutConfirmDialog() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('確認登出'),
-        content: const Text('確定要登出嗎？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('登出'),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        final dialogColors = dialogContext.colors;
+        return AlertDialog(
+          title: const Text('確認登出'),
+          content: const Text('確定要登出嗎？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: TextButton.styleFrom(foregroundColor: dialogColors.error),
+              child: const Text('登出'),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true && mounted) {
@@ -155,41 +159,43 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           '編輯個人資料',
           style: TextStyle(
-            color: Colors.black,
+            color: colors.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: colors.surface,
+        foregroundColor: colors.textPrimary,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: colors.icon),
         actions: [
           // 儲存按鈕（常駐顯示，無變更時不可點選）
           TextButton(
             // 只有在有變更且不在儲存中時才可點選
             onPressed: (_hasChanges && !_isSaving) ? _saveChanges : null,
             child: _isSaving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.black,
+                      color: colors.primary,
                     ),
                   )
                 : Text(
                     '儲存',
                     style: TextStyle(
-                      // 有變更時顯示黑色，無變更時顯示半透明黑色
+                      // 有變更時顯示主色，無變更時顯示禁用色
                       color: _hasChanges
-                          ? Colors.black
-                          : Colors.black.withOpacity(0.4),
+                          ? colors.primary
+                          : colors.textDisabled,
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
                     ),
@@ -237,6 +243,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   /// 建立頭像區域
   Widget _buildAvatarSection() {
+    final colors = context.colors;
     return Center(
       child: Column(
         children: [
@@ -245,7 +252,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             children: [
               CircleAvatar(
                 radius: 50,
-                backgroundColor: Colors.grey[200],
+                backgroundColor: colors.surfaceContainer,
                 backgroundImage: widget.user?.photoURL != null
                     ? NetworkImage(widget.user!.photoURL!)
                     : null,
@@ -253,7 +260,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     ? Icon(
                         Icons.person,
                         size: 50,
-                        color: Colors.grey[600],
+                        color: colors.iconSecondary,
                       )
                     : null,
               ),
@@ -264,14 +271,14 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: colors.primary,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+                    border: Border.all(color: colors.surface, width: 2),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.camera_alt,
                     size: 14,
-                    color: Colors.white,
+                    color: colors.textOnPrimary,
                   ),
                 ),
               ),
@@ -282,7 +289,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           Text(
             '點擊更換頭像（開發中）',
             style: TextStyle(
-              color: Colors.grey[500],
+              color: colors.textDisabled,
               fontSize: 12,
             ),
           ),
@@ -293,6 +300,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   /// 建立用戶資訊表單
   Widget _buildUserInfoForm() {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -303,20 +311,20 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             labelText: '顯示名稱',
             hintText: '請輸入您的顯示名稱',
             filled: true,
-            fillColor: Colors.grey[100],
+            fillColor: colors.surfaceContainer,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.black, width: 1.5),
+              borderSide: BorderSide(color: colors.borderFocused, width: 1.5),
             ),
-            labelStyle: TextStyle(color: Colors.grey[700]),
-            floatingLabelStyle: const TextStyle(color: Colors.black),
-            prefixIcon: Icon(Icons.person_outline, color: Colors.grey[600]),
+            labelStyle: TextStyle(color: colors.textSecondary),
+            floatingLabelStyle: TextStyle(color: colors.primary),
+            prefixIcon: Icon(Icons.person_outline, color: colors.iconSecondary),
           ),
-          cursorColor: Colors.black,
+          cursorColor: colors.primary,
           enabled: !_isSaving,
         ),
 
@@ -326,12 +334,12 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey[100],
+            color: colors.surfaceContainer,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
-              Icon(Icons.email_outlined, color: Colors.grey[600]),
+              Icon(Icons.email_outlined, color: colors.iconSecondary),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -341,23 +349,23 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       '電子郵件',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: colors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       widget.user?.email ?? '未設定',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: Colors.black87,
+                        color: colors.textPrimary,
                       ),
                     ),
                   ],
                 ),
               ),
               // 鎖定圖示表示不可編輯
-              Icon(Icons.lock_outline, color: Colors.grey[400], size: 18),
+              Icon(Icons.lock_outline, color: colors.iconTertiary, size: 18),
             ],
           ),
         ),
@@ -367,7 +375,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         Text(
           '電子郵件無法修改',
           style: TextStyle(
-            color: Colors.grey[500],
+            color: colors.textDisabled,
             fontSize: 12,
           ),
         ),
@@ -394,6 +402,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   /// 建立帳號連結區域
   Widget _buildAccountLinkSection() {
+    final colors = context.colors;
     // 取得已連結的登入方式
     final firebaseService = ref.read(firebaseServiceProvider);
     final linkedProviders = firebaseService.getLinkedProviders();
@@ -408,7 +417,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           '帳號連結',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.grey[700],
+            color: colors.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -417,7 +426,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           '連結其他帳號後，可使用多種方式登入',
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey[500],
+            color: colors.textDisabled,
           ),
         ),
         const SizedBox(height: 16),
@@ -455,6 +464,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     required VoidCallback? onPressed,
     bool isDisabled = false,
   }) {
+    final colors = context.colors;
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
@@ -464,7 +474,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           side: BorderSide(
             color: isLinked
                 ? Colors.green
-                : (isDisabled ? Colors.grey[300]! : Colors.grey[400]!),
+                : (isDisabled ? colors.border : colors.iconSecondary),
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
@@ -475,7 +485,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             Icon(
               icon,
               size: 24,
-              color: isDisabled ? Colors.grey[400] : iconColor,
+              color: isDisabled ? colors.iconTertiary : iconColor,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -483,7 +493,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 label,
                 style: TextStyle(
                   fontSize: 16,
-                  color: isDisabled ? Colors.grey[400] : Colors.black87,
+                  color: isDisabled ? colors.textDisabled : colors.textPrimary,
                 ),
               ),
             ),
@@ -508,7 +518,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 '連結',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: colors.textSecondary,
                 ),
               )
             else
@@ -516,7 +526,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 '尚未開放',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[400],
+                  color: colors.textDisabled,
                 ),
               ),
           ],
@@ -527,6 +537,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   /// 處理連結 Google 帳號
   Future<void> _handleLinkGoogle() async {
+    final colors = context.colors;
     try {
       final firebaseService = ref.read(firebaseServiceProvider);
       await firebaseService.linkWithGoogle();
@@ -546,7 +557,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$e'),
-            backgroundColor: Colors.red,
+            backgroundColor: colors.error,
           ),
         );
       }
@@ -561,15 +572,16 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     required String label,
     required String value,
   }) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: colors.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey[600], size: 20),
+          Icon(icon, color: colors.iconSecondary, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -579,16 +591,16 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                   label,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    color: colors.textPrimary,
                   ),
                 ),
               ],
@@ -607,23 +619,24 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   
   /// 建立登出按鈕區域
   Widget _buildSignOutButton() {
+    final colors = context.colors;
     return Center(
       child: SizedBox(
         width: double.infinity,
         child: OutlinedButton.icon(
           onPressed: _showSignOutConfirmDialog,
-          icon: const Icon(Icons.logout, color: Colors.red),
-          label: const Text(
+          icon: Icon(Icons.logout, color: colors.error),
+          label: Text(
             '登出',
             style: TextStyle(
-              color: Colors.red,
+              color: colors.error,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
           ),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
-            side: const BorderSide(color: Colors.red),
+            side: BorderSide(color: colors.error),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),

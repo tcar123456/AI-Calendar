@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../utils/constants.dart';
 
 /// 登入畫面
@@ -112,6 +113,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     // 監聽認證狀態
     final authState = ref.watch(authControllerProvider);
 
@@ -121,7 +124,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage!),
-            backgroundColor: Colors.red,
+            backgroundColor: colors.error,
           ),
         );
         ref.read(authControllerProvider.notifier).clearError();
@@ -178,7 +181,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 child: IconButton(
                   onPressed: _hideEmailLoginForm,
                   icon: const Icon(Icons.arrow_back),
-                  color: Colors.grey[600],
+                  color: colors.iconSecondary,
                   tooltip: '返回',
                 ),
               ),
@@ -190,6 +193,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   /// 建立標題區域
   Widget _buildHeader() {
+    final colors = context.colors;
     return Column(
       children: [
         // Logo 圖示（黑白簡約風格）
@@ -197,20 +201,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           width: 100,
           height: 100,
           decoration: BoxDecoration(
-            color: Colors.black,
+            color: colors.primary,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
+                color: colors.shadow,
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: const Icon(
+          child: Icon(
             Icons.calendar_month_rounded,
             size: 56,
-            color: Colors.white,
+            color: colors.onPrimary,
           ),
         ),
 
@@ -221,7 +225,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           'AI 語音行事曆',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: colors.textPrimary,
               ),
         ),
 
@@ -231,7 +235,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         Text(
           '用聲音管理您的時間',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.grey[600],
+                color: colors.textSecondary,
               ),
         ),
       ],
@@ -240,12 +244,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   /// 建立登入按鈕區域（初始畫面）
   Widget _buildLoginButtons(AuthState authState) {
+    final colors = context.colors;
     return Column(
       children: [
         // Email 登入按鈕
         _buildLoginButton(
           icon: Icons.email_outlined,
-          iconColor: Colors.grey[700]!,
+          iconColor: colors.iconSecondary,
           label: '使用 Email 登入',
           onPressed: authState.isLoading ? null : _showEmailLoginForm,
         ),
@@ -276,7 +281,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         // Loading 指示器
         if (authState.isLoading) ...[
           const SizedBox(height: 24),
-          const CircularProgressIndicator(),
+          CircularProgressIndicator(color: colors.primary),
         ],
       ],
     );
@@ -290,6 +295,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     required VoidCallback? onPressed,
     bool isDisabled = false,
   }) {
+    final colors = context.colors;
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
@@ -297,7 +303,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           side: BorderSide(
-            color: isDisabled ? Colors.grey[300]! : Colors.grey[400]!,
+            color: isDisabled ? colors.borderSubtle : colors.border,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
@@ -308,7 +314,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             Icon(
               icon,
               size: 24,
-              color: isDisabled ? Colors.grey[400] : iconColor,
+              color: isDisabled ? colors.textDisabled : iconColor,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -316,7 +322,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 label,
                 style: TextStyle(
                   fontSize: 16,
-                  color: isDisabled ? Colors.grey[400] : Colors.black87,
+                  color: isDisabled ? colors.textDisabled : colors.textPrimary,
                 ),
               ),
             ),
@@ -435,24 +441,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   /// 建立提交按鈕
   Widget _buildSubmitButton(AuthState authState) {
+    final colors = context.colors;
     return SizedBox(
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
         onPressed: authState.isLoading ? null : _handleSubmit,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
+          backgroundColor: colors.primary,
+          foregroundColor: colors.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: authState.isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
-                  color: Colors.white,
+                  color: colors.onPrimary,
                   strokeWidth: 2,
                 ),
               )
@@ -463,6 +470,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   /// 建立切換模式按鈕
   Widget _buildToggleModeButton() {
+    final colors = context.colors;
     return TextButton(
       onPressed: () {
         setState(() {
@@ -471,18 +479,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       },
       child: Text(
         _isSignUpMode ? '已有帳號？點此登入' : '沒有帳號？點此註冊',
-        style: const TextStyle(color: Colors.black),
+        style: TextStyle(color: colors.textPrimary),
       ),
     );
   }
 
   /// 建立忘記密碼按鈕
   Widget _buildForgotPasswordButton() {
+    final colors = context.colors;
     return TextButton(
       onPressed: _handleForgotPassword,
       child: Text(
         '忘記密碼？',
-        style: TextStyle(color: Colors.grey[600]),
+        style: TextStyle(color: colors.textSecondary),
       ),
     );
   }
@@ -521,13 +530,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   /// 處理忘記密碼
   Future<void> _handleForgotPassword() async {
+    final colors = context.colors;
     final email = _emailController.text.trim();
 
     if (email.isEmpty || !kEmailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('請先輸入有效的電子郵件地址'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: const Text('請先輸入有效的電子郵件地址'),
+          backgroundColor: colors.warning,
         ),
       );
       return;
@@ -536,20 +546,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     // 顯示確認對話框
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('重設密碼'),
-        content: Text('將發送密碼重設郵件至：\n$email'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+      builder: (dialogContext) {
+        final dialogColors = dialogContext.colors;
+        return AlertDialog(
+          backgroundColor: dialogColors.surface,
+          title: Text(
+            '重設密碼',
+            style: TextStyle(color: dialogColors.textPrimary),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('確定'),
+          content: Text(
+            '將發送密碼重設郵件至：\n$email',
+            style: TextStyle(color: dialogColors.textPrimary),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                '取消',
+                style: TextStyle(color: dialogColors.textSecondary),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                '確定',
+                style: TextStyle(color: dialogColors.primary),
+              ),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true) {
@@ -558,9 +584,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('密碼重設郵件已發送，請檢查您的信箱'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('密碼重設郵件已發送，請檢查您的信箱'),
+            backgroundColor: colors.success,
           ),
         );
       }

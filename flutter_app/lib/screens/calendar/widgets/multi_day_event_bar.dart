@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../models/event_model.dart';
+import '../../../theme/app_colors.dart';
 import '../utils/calendar_utils.dart';
 import 'day_cell.dart' show EventDragData;
 
@@ -60,6 +61,7 @@ class MultiDayEventBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     // 取得事件的行索引（從全局分配表）
     final rowIndex = rowAllocation[event.id] ?? 0;
     
@@ -149,20 +151,20 @@ class MultiDayEventBar extends StatelessWidget {
               children: [
                 // 重複行程標記
                 if (event.isRecurring)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 3),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 3),
                     child: Icon(
                       Icons.repeat,
                       size: 10,
-                      color: Colors.white,
+                      color: colors.textOnPrimary,
                     ),
                   ),
                 Flexible(
                   child: Text(
                     event.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: Colors.white,
+                      color: colors.textOnPrimary,
                       fontWeight: FontWeight.w500,
                       height: 1.2,
                     ),
@@ -202,16 +204,16 @@ class MultiDayEventBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (event.isRecurring)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 3),
-                    child: Icon(Icons.repeat, size: 10, color: Colors.white),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 3),
+                    child: Icon(Icons.repeat, size: 10, color: colors.textOnPrimary),
                   ),
                 Flexible(
                   child: Text(
                     event.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Colors.white,
+                      color: colors.textOnPrimary,
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,

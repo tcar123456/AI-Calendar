@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/calendar_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../providers/holiday_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../utils/constants.dart';
 import '../memo/memo_screen.dart';
 import '../notification/notification_screen.dart';
@@ -132,11 +133,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Future<void> _checkNetworkStatus() async {
     final connectivityResult = await Connectivity().checkConnectivity();
     if (connectivityResult.contains(ConnectivityResult.none) && mounted) {
+      final colors = context.colors;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('您目前為離線狀態，將無法使用語音建立功能'),
-          backgroundColor: Color(0xFF333333),
-          duration: Duration(seconds: 4),
+        SnackBar(
+          content: const Text('您目前為離線狀態，將無法使用語音建立功能'),
+          backgroundColor: colors.surfaceContainerHigh,
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -810,10 +812,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
+      builder: (sheetContext) => Container(
         margin: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: sheetContext.colors.surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: SafeArea(
@@ -897,10 +899,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         .updateEvent(event.id, updatedEvent);
 
     if (mounted) {
+      final colors = context.colors;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(success ? '行程已移動' : '移動失敗'),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? colors.success : colors.error,
         ),
       );
     }
@@ -948,10 +951,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         .createEvent(newEvent);
 
     if (mounted) {
+      final colors = context.colors;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(eventId != null ? '行程已複製' : '複製失敗'),
-          backgroundColor: eventId != null ? Colors.green : Colors.red,
+          backgroundColor: eventId != null ? colors.success : colors.error,
         ),
       );
     }
@@ -961,23 +965,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   ///
   /// 拖曳行程時顯示在底部，放開可刪除行程
   Widget _buildDeleteDropZone() {
+    final colors = context.colors;
     return DragTarget<EventDragData>(
       onWillAcceptWithDetails: (details) => true,
       onAcceptWithDetails: (details) {
         _deleteEventByDrag(details.data.event);
       },
-      builder: (context, candidateData, rejectedData) {
+      builder: (builderContext, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
 
         return Container(
           width: 62,
           height: 62,
           decoration: BoxDecoration(
-            color: isHovering ? Colors.red.shade700 : Colors.red,
+            color: isHovering ? colors.error.withAlpha((0.8 * 255).round()) : colors.error,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: colors.shadow,
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -986,7 +991,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           child: Icon(
             Icons.delete_outline,
             size: 30,
-            color: Colors.white,
+            color: colors.onPrimary,
           ),
         );
       },
@@ -998,24 +1003,29 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     // 先結束拖曳狀態
     setState(() => _isDragging = false);
 
+    final colors = context.colors;
     // 顯示確認對話框
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('確認刪除'),
-        content: Text('確定要刪除「${event.title}」嗎？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('刪除'),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        final dialogColors = dialogContext.colors;
+        return AlertDialog(
+          backgroundColor: dialogColors.surface,
+          title: Text('確認刪除', style: TextStyle(color: dialogColors.textPrimary)),
+          content: Text('確定要刪除「${event.title}」嗎？', style: TextStyle(color: dialogColors.textPrimary)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text('取消', style: TextStyle(color: dialogColors.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: TextButton.styleFrom(foregroundColor: dialogColors.error),
+              child: const Text('刪除'),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true) {
@@ -1027,7 +1037,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(success ? '行程已刪除' : '刪除失敗'),
-            backgroundColor: success ? Colors.green : Colors.red,
+            backgroundColor: success ? colors.success : colors.error,
           ),
         );
       }

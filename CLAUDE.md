@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 專案概述
 
-AI Calendar App - 語音智能行事曆應用程式。使用 Flutter、Firebase 和 AI 服務。用戶可以自然語音建立行程（例如：「明天下午兩點在咖啡廳跟 Amy 開會」），AI 自動將語音轉換為結構化的行事曆事件。
+AI Calendar App - 黑白簡約風格的語音智能行事曆應用程式。使用 Flutter、Firebase 和 AI 服務。用戶可以自然語音建立行程（例如：「明天下午兩點在咖啡廳跟 Amy 開會」），AI 自動將語音轉換為結構化的行事曆事件。
 
 ## 🚨 核心開發原則（必讀）
 
